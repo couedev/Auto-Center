@@ -37,21 +37,43 @@ function dateLabel(isoDate: string) {
 }
 
 export default function BookingPage() {
-  const now = todayInFortaleza();
+  const [now, setNow] = useState({ date: "", time: "" });
   const [service, setService] = useState(() => findService(null));
-  const [selectedDate, setSelectedDate] = useState(() => addDays(todayInFortaleza().date, 1));
-  const [visibleWeekStart, setVisibleWeekStart] = useState(() => startOfWeek(addDays(todayInFortaleza().date, 1)));
+  const [selectedDate, setSelectedDate] = useState("");
+  const [visibleWeekStart, setVisibleWeekStart] = useState("");
   const [selectedTime, setSelectedTime] = useState<string | null>("10:30");
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
+      const current = todayInFortaleza();
+      const firstDate = addDays(current.date, 1);
+      setNow(current);
+      setSelectedDate(firstDate);
+      setVisibleWeekStart(startOfWeek(firstDate));
       try { setService(findService(window.sessionStorage.getItem("auto-ct-selected-service"))); }
       catch { setService(findService(null)); }
     });
     return () => window.cancelAnimationFrame(frame);
   }, []);
+
+  if (!now.date) {
+    return (
+      <div className={styles.canvas}>
+        <main className={styles.app}>
+          <header className={styles.header}>
+            <Link href="/aplicativo" aria-label="Voltar para serviços"><ChevronLeft /></Link>
+            <h1>Agendamento</h1>
+            <span aria-hidden="true" />
+          </header>
+          <span className={styles.headerUnderline} aria-hidden="true" />
+          <div className={styles.content} role="status">Carregando horários disponíveis...</div>
+          <MobileTabBar active="booking" />
+        </main>
+      </div>
+    );
+  }
 
   const dates = Array.from({ length: 7 }, (_, index) => addDays(visibleWeekStart, index));
   const canGoBack = visibleWeekStart > startOfWeek(now.date);

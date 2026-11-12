@@ -1,4 +1,5 @@
 import Link from "next/link";
+import CurrentYear from "./current-year";
 import styles from "./page.module.css";
 
 function ArrowIcon() {
@@ -127,7 +128,7 @@ export default function HomePage() {
         </section>
 
         <footer className={styles.footer}>
-          <span>© {new Date().getFullYear()} AutoCenter. Sua operação, mais organizada.</span>
+          <span>© <CurrentYear /> AutoCenter. Sua operação, mais organizada.</span>
           <Link href="/login">Entrar na plataforma <ArrowIcon /></Link>
         </footer>
       </main>
