@@ -1,0 +1,73 @@
+.canvas { flex: 1; min-height: 100dvh; display: flex; justify-content: center; color-scheme: light; background: radial-gradient(circle at 90% 15%, rgba(155, 246, 30, .1), transparent 32%), #e8ebe8; font-family: Arial, Helvetica, sans-serif; }
+.app { position: relative; width: min(100%, 430px); min-height: 100dvh; padding-bottom: calc(91px + env(safe-area-inset-bottom)); overflow: hidden; color: #121612; background: linear-gradient(180deg, #fff, #fafbfa 59%, #f5f6f5); box-shadow: 0 0 55px rgba(24, 33, 22, .17); }
+.header { min-height: 69px; padding: 16px 17px 3px; display: grid; grid-template-columns: 30px 1fr 30px; align-items: center; }
+.header > a { width: 30px; height: 34px; display: grid; place-items: center; color: #111711; }
+.header svg { width: 25px; height: 25px; stroke-width: 1.8; }
+.header h1 { margin: 0; color: #101410; text-align: center; font-size: 21px; font-weight: 760; letter-spacing: -.5px; }
+.headerUnderline { width: 44px; height: 3px; margin: 0 0 0 17px; display: block; background: #8deb00; box-shadow: 0 0 10px rgba(141, 235, 0, .35); }
+.content { padding: 16px 16px 0; }
+
+.serviceCard { min-height: 118px; padding: 11px; display: grid; grid-template-columns: 104px minmax(0, 1fr); align-items: center; gap: 12px; border: 1px solid #94d837; border-radius: 15px; background: radial-gradient(circle at 82% 24%, rgba(194, 246, 127, .2), transparent 53%), #f9fbf8; box-shadow: 0 5px 14px rgba(48, 72, 32, .06); }
+.serviceThumb { width: 104px; height: 96px; display: grid; place-items: center; overflow: hidden; border-radius: 11px; color: #f3f7f2; }
+.serviceThumb svg { width: 54px; height: 54px; filter: drop-shadow(0 4px 4px rgba(0, 0, 0, .28)); }
+.truck { background: linear-gradient(135deg, #a9b4b8, #394d55 67%, #24343a); }
+.car { background: linear-gradient(135deg, #c9d0d0, #849198 60%, #4e5e63); }
+.trailer { background: linear-gradient(135deg, #a2b0b5, #52646b 59%, #2c3f47); }
+.wash { background: radial-gradient(circle at 72% 16%, rgba(150, 236, 27, .4), transparent 31%), linear-gradient(135deg, #606d6c, #182220 75%); }
+.interior { background: linear-gradient(135deg, #6c7374, #262a2b 63%, #111617); }
+.serviceInfo { min-width: 0; }
+.serviceInfo h2 { margin: 0 0 5px; font-size: 17px; line-height: 1.1; font-weight: 750; letter-spacing: -.3px; }
+.serviceInfo p { margin: 0 0 7px; color: #3e463d; font-size: 12px; line-height: 1.25; }
+.serviceInfo strong { color: #329b00; font-size: 21px; font-weight: 760; }
+
+.dateSection { margin-top: 20px; }
+.stepHeading { min-height: 34px; display: flex; align-items: center; gap: 9px; }
+.stepNumber { width: 27px; height: 27px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 50%; color: #182300; background: linear-gradient(180deg, #bfff2c, #8eeb00); font-size: 15px; font-weight: 750; }
+.stepHeading h2 { margin: 0; color: #141814; font-size: 16px; font-weight: 740; white-space: nowrap; }
+.monthControls { margin-left: auto; display: flex; align-items: center; gap: 2px; }
+.monthControls span { min-width: 104px; text-align: center; font-size: 11px; white-space: nowrap; }
+.monthControls button { width: 21px; height: 27px; padding: 0; display: grid; place-items: center; border: 0; color: #252b23; background: transparent; cursor: pointer; }
+.monthControls button:disabled { color: #bac0b7; cursor: default; }
+.monthControls button svg { width: 15px; height: 15px; }
+.weekdays, .dates { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; text-align: center; }
+.weekdays { margin-top: 10px; color: #363d34; font-size: 11px; }
+.weekdays span { padding: 6px 0; }
+.dates { margin-top: 2px; }
+.dates button { height: 48px; padding: 0; border: 1px solid #dfe3df; border-radius: 11px; color: #1c211c; background: linear-gradient(180deg, #fff, #f1f3f2); font-size: 15px; cursor: pointer; }
+.dates button:hover:not(:disabled) { border-color: #8be200; }
+.dates button:disabled { color: #afb5ad; background: #f5f6f5; cursor: default; }
+.dates .selectedDate { border-color: #92ea00; color: #162200; background: linear-gradient(180deg, #bfff27, #8bea00); box-shadow: 0 2px 7px rgba(116, 192, 0, .15); font-weight: 760; }
+
+.timeSection { margin-top: 18px; padding-top: 13px; border-top: 1px solid #e3e6e2; }
+.timeSlots { margin-top: 14px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.timeSlots button { min-height: 49px; padding: 0 3px; border: 1px solid #dce1dc; border-radius: 11px; color: #161c16; background: linear-gradient(180deg, #fff, #f0f2f1); font-size: 14px; font-weight: 650; cursor: pointer; }
+.timeSlots button:hover:not(:disabled) { border-color: #8bea00; }
+.timeSlots button:disabled { color: #adb3aa; cursor: default; }
+.timeSlots .selectedTime { border-color: #94ea00; color: #152100; background: linear-gradient(180deg, #c2ff34, #8de900); font-weight: 760; }
+
+.summary { min-height: 70px; margin-top: 23px; padding: 11px 15px; display: grid; grid-template-columns: 1.45fr .8fr; border-radius: 13px; background: #f0f2f1; }
+.summary > div { min-width: 0; display: flex; align-items: center; gap: 11px; }
+.summary > div + div { padding-left: 17px; border-left: 1px solid #d0d6cf; }
+.summary svg { width: 22px; height: 22px; flex: 0 0 auto; color: #313a30; stroke-width: 1.6; }
+.summary span { min-width: 0; display: grid; gap: 4px; color: #454c43; font-size: 11px; }
+.summary strong { overflow: hidden; color: #151b14; font-size: 12px; font-weight: 720; text-overflow: ellipsis; white-space: nowrap; }
+.confirmButton { width: 100%; min-height: 50px; margin-top: 23px; display: flex; align-items: center; justify-content: center; gap: 11px; border: 1px solid #a5f000; border-radius: 13px; color: #102000; background: linear-gradient(180deg, #c9ff2a, #8fea00); box-shadow: 0 5px 13px rgba(107, 179, 0, .14); font-size: 16px; font-weight: 760; cursor: pointer; }
+.confirmButton svg { width: 22px; height: 22px; stroke-width: 1.9; }
+.confirmButton:disabled { cursor: default; opacity: .62; }
+.confirmed, .error { margin: 15px 0 -8px; display: flex; align-items: center; justify-content: center; gap: 7px; color: #368c09; text-align: center; font-size: 12px; font-weight: 650; }
+.confirmed svg { width: 17px; height: 17px; }
+.error { color: #b32727; }
+
+@media (max-width: 370px) {
+  .content { padding-right: 12px; padding-left: 12px; }
+  .monthControls span { min-width: 87px; font-size: 10px; }
+  .monthControls button { width: 17px; }
+  .stepHeading h2 { font-size: 14px; }
+  .serviceCard { grid-template-columns: 88px minmax(0, 1fr); gap: 9px; }
+  .serviceThumb { width: 88px; height: 88px; }
+  .summary { padding: 10px; }
+  .summary > div { gap: 6px; }
+  .summary > div + div { padding-left: 9px; }
+  .summary svg { width: 19px; height: 19px; }
+  .summary strong { font-size: 10px; }
+}

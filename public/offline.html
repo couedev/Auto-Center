@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0d0f0c" />
+    <title>Sem conexão - Lava Jato</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { min-height: 100vh; margin: 0; padding: 24px; display: grid; place-items: center; color: #f4f5ef; background: #0d0f0c; font: 16px/1.6 Arial, sans-serif; text-align: center; }
+      main { max-width: 420px; }
+      .mark { display: grid; place-items: center; width: 54px; height: 54px; margin: 0 auto 24px; border-radius: 15px; color: #10120d; background: #c9f31d; font-size: 36px; font-weight: 800; }
+      h1 { margin: 0 0 10px; font-size: 28px; letter-spacing: -1px; }
+      p { margin: 0 0 24px; color: #a0a59b; }
+      button { padding: 12px 18px; border: 0; border-radius: 7px; color: #171a10; background: #c9f31d; font-size: 14px; font-weight: 700; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="mark" aria-hidden="true">LJ</div>
+      <h1>Você está sem conexão</h1>
+      <p>Quando a internet voltar, tente acessar a biblioteca novamente.</p>
+      <button type="button" onclick="location.reload()">Tentar novamente</button>
+    </main>
+  </body>
+</html>

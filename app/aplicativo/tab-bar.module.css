@@ -1,0 +1,4 @@
+.tabBar { position: fixed; z-index: 6; bottom: 0; left: 50%; width: min(100%, 430px); height: calc(73px + env(safe-area-inset-bottom)); padding: 7px 13px calc(7px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(3, 1fr); align-items: start; justify-items: center; transform: translateX(-50%); border-top: 1px solid #d9deda; border-radius: 20px 20px 0 0; background: rgba(250, 251, 250, .96); box-shadow: 0 -5px 20px rgba(32, 42, 29, .09); backdrop-filter: blur(15px); }
+.tabBar > a, .tabBar > button { width: 64px; height: 45px; display: grid; place-items: center; border: 0; border-radius: 14px; color: #303831; background: transparent; }
+.tabBar svg { width: 27px; height: 27px; stroke-width: 1.75; }
+.tabBar .activeTab { color: #101a05; background: linear-gradient(180deg, #bdff36, #89e900); box-shadow: 0 3px 9px rgba(110, 185, 0, .15); }

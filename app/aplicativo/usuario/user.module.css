@@ -1,0 +1,79 @@
+.canvas { flex: 1; min-height: 100dvh; display: flex; justify-content: center; color-scheme: light; background: radial-gradient(circle at 12% 15%, rgba(155, 246, 30, .1), transparent 31%), #e8ebe8; font-family: Arial, Helvetica, sans-serif; }
+.app { position: relative; width: min(100%, 430px); min-height: 100dvh; padding-bottom: calc(90px + env(safe-area-inset-bottom)); overflow: hidden; color: #121612; background: linear-gradient(180deg, #fff, #fafbfa 60%, #f4f5f4); box-shadow: 0 0 55px rgba(24, 33, 22, .17); }
+.content { padding: 24px 15px 0; }
+.header { margin: 0 4px; }
+.header h1 { margin: 0; color: #121712; font-size: 23px; font-weight: 760; line-height: 1.15; letter-spacing: -.4px; }
+.header span { width: 43px; height: 3px; margin-top: 9px; display: block; background: #8bea00; box-shadow: 0 0 9px rgba(139, 234, 0, .25); }
+
+.profileCard { width: 100%; min-height: 96px; margin-top: 15px; padding: 12px 14px; display: grid; grid-template-columns: 68px minmax(0, 1fr) 20px; align-items: center; gap: 14px; border: 1px solid #d9ddda; border-radius: 16px; color: #141914; background: linear-gradient(145deg, #fff, #f3f5f4); box-shadow: 0 7px 19px rgba(24, 34, 22, .06); text-align: left; cursor: pointer; }
+.profileCard:hover { border-color: #a7dc53; }
+.avatar { width: 68px; height: 68px; display: grid; place-items: center; border-radius: 50%; color: #343b31; background: linear-gradient(145deg, #edfacb, #ccf99a); }
+.avatar svg { width: 37px; height: 37px; stroke-width: 1.4; }
+.profileInfo { min-width: 0; display: grid; gap: 3px; }
+.profileInfo strong { overflow: hidden; color: #101510; font-size: 16px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.profileInfo span { overflow: hidden; color: #313a31; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.profileCard > svg { width: 20px; height: 20px; stroke-width: 1.8; }
+
+.appointments { margin-top: 23px; }
+.sectionTitle { margin: 0 5px 14px; padding-left: 11px; border-left: 5px solid #8ded00; color: #141914; font-size: 18px; font-weight: 760; line-height: 1.2; }
+.appointmentList { display: grid; gap: 10px; }
+.appointmentCard { position: relative; min-height: 125px; padding: 29px 10px 9px; display: grid; grid-template-columns: 91px minmax(0, 1fr); align-items: center; gap: 13px; border: 1px solid #9de446; border-radius: 15px; background: radial-gradient(circle at 82% 30%, rgba(195, 245, 133, .13), transparent 60%), #fbfdf9; box-shadow: 0 6px 15px rgba(58, 100, 15, .07); }
+.appointmentThumb { width: 91px; height: 92px; display: grid; place-items: center; border-radius: 10px; color: #f4f8f1; }
+.appointmentThumb svg { width: 51px; height: 51px; filter: drop-shadow(0 4px 3px rgba(0, 0, 0, .28)); }
+.truck { background: linear-gradient(135deg, #a9b4b8, #394d55 67%, #24343a); }
+.car { background: linear-gradient(135deg, #c9d0d0, #849198 60%, #4e5e63); }
+.trailer { background: linear-gradient(135deg, #a2b0b5, #52646b 59%, #2c3f47); }
+.wash { background: radial-gradient(circle at 72% 16%, rgba(150, 236, 27, .4), transparent 31%), linear-gradient(135deg, #606d6c, #182220 75%); }
+.interior { background: linear-gradient(135deg, #6c7374, #262a2b 63%, #111617); }
+.appointmentInfo { min-width: 0; display: grid; align-content: center; gap: 5px; }
+.appointmentInfo > strong { overflow: hidden; color: #111811; font-size: 14px; font-weight: 740; text-overflow: ellipsis; white-space: nowrap; }
+.appointmentInfo > span { display: flex; align-items: center; gap: 7px; overflow: hidden; color: #202820; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.appointmentInfo svg { width: 15px; height: 15px; flex: 0 0 auto; stroke-width: 1.75; }
+.status { position: absolute; top: 7px; right: 8px; min-height: 25px; padding: 0 8px; display: inline-flex; align-items: center; gap: 5px; border-radius: 14px; color: #183000; background: linear-gradient(180deg, #c4ff35, #90e900); font-size: 10px; font-weight: 760; }
+.status svg { width: 13px; height: 13px; }
+.emptyAppointments { min-height: 125px; padding: 17px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; border: 1px solid #b5df87; border-radius: 15px; background: #fbfdf9; text-align: center; }
+.emptyAppointments > svg { width: 28px; height: 28px; color: #5b9e0a; }
+.emptyAppointments p { margin: 0; color: #414b3c; font-size: 12px; }
+.emptyAppointments a { color: #368c00; font-size: 12px; font-weight: 750; text-decoration: none; }
+
+.settingsSection { margin-top: 23px; }
+.settingsList { overflow: hidden; border: 1px solid #e1e4e1; border-radius: 16px; background: linear-gradient(145deg, #fff, #f4f5f4); box-shadow: 0 7px 21px rgba(30, 37, 28, .07); }
+.settingRow { width: 100%; min-height: 47px; padding: 0 18px; display: grid; grid-template-columns: 28px minmax(0, 1fr) 26px; align-items: center; gap: 16px; border: 0; border-bottom: 1px solid #e0e4e0; color: #182018; background: transparent; text-align: left; font-size: 13px; }
+.settingRow:last-child { border-bottom: 0; }
+button.settingRow { cursor: pointer; }
+button.settingRow:hover { background: #f2f8eb; }
+.settingRow > svg:first-child { width: 23px; height: 23px; stroke-width: 1.6; }
+.settingRow > svg:last-child { width: 18px; height: 18px; justify-self: end; stroke-width: 1.8; }
+.switch { width: 42px; height: 24px; margin-left: -16px; padding: 2px; display: flex; align-items: center; border: 1px solid #b8beba; border-radius: 15px; background: #cbd1cb; cursor: pointer; }
+.switch > span { width: 18px; height: 18px; display: block; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .16); transition: transform .18s ease; }
+.switchOn { border-color: #79d700; background: linear-gradient(180deg, #aaff29, #72de00); }
+.switchOn > span { transform: translateX(18px); }
+
+.sheetBackdrop { position: fixed; inset: 0; z-index: 10; display: flex; justify-content: center; align-items: flex-end; background: rgba(10, 17, 9, .4); }
+.sheet { width: min(100%, 430px); max-height: 85dvh; padding: 21px 19px calc(24px + env(safe-area-inset-bottom)); overflow-y: auto; border-radius: 22px 22px 0 0; color: #152014; background: #fff; box-shadow: 0 -9px 32px rgba(0, 0, 0, .16); }
+.sheetHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sheetHeading h2 { margin: 0; font-size: 20px; }
+.sheetHeading button { width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 8px; color: #243021; background: #eef1ec; cursor: pointer; }
+.sheetHeading button svg { width: 18px; height: 18px; }
+.profileForm { margin-top: 20px; display: grid; gap: 12px; }
+.profileForm label { display: grid; gap: 6px; color: #334331; font-size: 12px; font-weight: 650; }
+.profileForm input { height: 43px; padding: 0 11px; border: 1px solid #cad4c5; border-radius: 10px; outline: 0; color: #101710; background: #fbfdf9; font-size: 14px; }
+.profileForm input:focus { border-color: #8fde00; }
+.profileForm > button { min-height: 44px; margin-top: 8px; border: 0; border-radius: 11px; color: #152000; background: linear-gradient(180deg, #c0ff2d, #8ee700); font-size: 14px; font-weight: 760; cursor: pointer; }
+.sheetContent { margin-top: 20px; color: #3b4938; font-size: 13px; line-height: 1.5; }
+.sheetContent p { margin: 12px 0; }
+.sheetContent > a { color: #388e00; font-weight: 750; text-decoration: none; }
+.preferenceOption { min-height: 53px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid #e0e7da; color: #1e2b1d; font-weight: 650; }
+.preferenceOption .switch { margin: 0; flex: 0 0 auto; }
+
+@media (max-width: 370px) {
+  .content { padding-right: 12px; padding-left: 12px; }
+  .profileCard { grid-template-columns: 58px minmax(0, 1fr) 18px; gap: 10px; }
+  .avatar { width: 58px; height: 58px; }
+  .avatar svg { width: 32px; height: 32px; }
+  .profileInfo strong { font-size: 14px; }
+  .profileInfo span { font-size: 10px; }
+  .appointmentCard { grid-template-columns: 76px minmax(0, 1fr); gap: 9px; }
+  .appointmentThumb { width: 76px; height: 83px; }
+  .appointmentInfo > span { font-size: 10px; }
+}
