@@ -20,7 +20,7 @@ export async function getAdminContext() {
   }
 
   const { data, error } = await supabase.auth.getClaims();
-  const userId = data.claims?.sub;
+  const userId = data?.claims?.sub;
 
   if (error || typeof userId !== "string") {
     return { ok: false as const, response: apiJson({ message: "Sessão inválida." }, 401) };

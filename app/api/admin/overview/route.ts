@@ -29,8 +29,8 @@ function bucketIndex(period: DashboardPeriod, date: Date, timeZone: string, loca
   return Math.min(Math.floor((local.day - 1) / 5), 5);
 }
 
-function getRelation(value: AppointmentRow["pedidos"]) {
-  return Array.isArray(value) ? value[0] : value;
+function getRelation(value: AppointmentRow["pedidos"] | AppointmentRow["pedidos"][]): AppointmentRow["pedidos"] {
+  return Array.isArray(value) ? value[0] ?? null : value;
 }
 
 export async function GET(request: Request) {

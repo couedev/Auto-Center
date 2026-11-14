@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 export default async function AdminGate({ children }: { children: ReactNode }) {
   const supabase = await createClient();
   const { data, error } = await supabase.auth.getClaims();
-  const userId = data.claims?.sub;
+  const userId = data?.claims?.sub;
 
   if (error || typeof userId !== "string") {
     redirect("/login");

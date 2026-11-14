@@ -116,6 +116,7 @@ export default function BookingPage() {
 
   useEffect(() => {
     if (!service || !selectedDate) return;
+    const serviceId = service.id;
     let active = true;
     setSlots([]);
     setSelectedTime(null);
@@ -124,7 +125,7 @@ export default function BookingPage() {
 
     async function loadAvailability() {
       try {
-        const query = new URLSearchParams({ serviceId: service.id, date: selectedDate });
+        const query = new URLSearchParams({ serviceId, date: selectedDate });
         const response = await fetch(`/api/app/availability?${query}`, { cache: "no-store" });
         const result = await response.json() as { slots?: Slot[]; message?: string };
         if (!response.ok) throw new Error(result.message || "Não foi possível consultar os horários.");
