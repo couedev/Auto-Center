@@ -9,8 +9,6 @@ const TOKEN = /^[0-9a-f]{64}$/i;
 
 type Credential = { id: string; token: string };
 
-export const runtime = "nodejs";
-
 function readCredentials(value: unknown): Credential[] | null {
   if (!value || typeof value !== "object") return null;
   const bookings = (value as Record<string, unknown>).bookings;
