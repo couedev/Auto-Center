@@ -8,6 +8,11 @@ If `auto_ct_supabase_mvp.sql` from Downloads was already applied to this same
 Supabase project, do not run this copy again. It contains the same schema and is
 kept here so the project has its database definition under version control.
 
+After the database schema is in place, run `storage.sql` once in the SQL Editor
+to create the public `produtos` and `servicos` image buckets. Re-running this
+storage setup is safe; it refreshes the bucket limits and its admin-only write
+policies without changing existing images.
+
 ## First administrator
 
 1. In Supabase Authentication, create the administrator account and confirm its

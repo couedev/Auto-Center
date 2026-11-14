@@ -5,13 +5,14 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import {
-  ArrowDownUp, Bell, Boxes, Building2, CheckCircle2,
+  ArrowDownUp, Boxes, Building2, CheckCircle2,
   CircleAlert, Coins, Eye, House, Package, Pencil, Plus, Search, Settings,
-  Trash2, TriangleAlert, X,
+  Trash2, TriangleAlert, Wrench, X,
 } from "lucide-react";
 import chrome from "../dashboard.module.css";
 import styles from "./products.module.css";
-import SignOutButton from "../sign-out-button";
+import DashboardActions from "../dashboard-actions";
+import CatalogImageField from "../catalog-image-field";
 
 type ProductArt = "oil" | "shampoo" | "wax" | "tire" | "filter" | "spray";
 type Product = {
@@ -21,11 +22,12 @@ type Product = {
   stock: number;
   price: number;
   art: ProductArt;
+  imageUrl: string | null;
 };
 type StatusFilter = "all" | "stock" | "low";
 type SortKey = "stock" | "price" | null;
 
-const blankProduct: Product = { id: "", name: "", description: "", stock: 0, price: 0, art: "shampoo" };
+const blankProduct: Product = { id: "", name: "", description: "", stock: 0, price: 0, art: "shampoo", imageUrl: null };
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 function productArt(name: string, description: string): ProductArt {
@@ -38,7 +40,7 @@ function productArt(name: string, description: string): ProductArt {
   return "shampoo";
 }
 
-function fromRecord(record: { id: string; nome: string; descricao: string | null; estoque: number; preco: number | string }): Product {
+function fromRecord(record: { id: string; nome: string; descricao: string | null; estoque: number; preco: number | string; imagem_url: string | null }): Product {
   const description = record.descricao ?? "";
   return {
     id: record.id,
@@ -47,14 +49,15 @@ function fromRecord(record: { id: string; nome: string; descricao: string | null
     stock: Number(record.estoque),
     price: Number(record.preco),
     art: productArt(record.nome, description),
+    imageUrl: record.imagem_url,
   };
 }
 
-function ProductThumbnail({ art }: { art: ProductArt }) {
+function ProductThumbnail({ art, imageUrl }: { art: ProductArt; imageUrl: string | null }) {
   const common = { stroke: "#c8d0bd", strokeWidth: 1.2, strokeLinejoin: "round" as const };
   return (
     <span className={styles.thumbnail} aria-hidden="true">
-      <svg viewBox="0 0 56 56" fill="none">
+      {imageUrl ? <span className={styles.thumbnailImage} role="img" aria-label="Imagem do produto" style={{ backgroundImage: "url(" + JSON.stringify(imageUrl) + ")" }} /> : <svg viewBox="0 0 56 56" fill="none">
         {art === "oil" && <>
           <rect x="21" y="3" width="14" height="6" rx="1" fill="#3e4742" stroke="#a5b29f" />
           <path d="M18 9h19l4 8v33H15V18l3-9Z" fill="#232a28" {...common} />
@@ -92,7 +95,7 @@ function ProductThumbnail({ art }: { art: ProductArt }) {
           <rect x="20" y="32" width="17" height="15" rx="2" fill="#27351b" stroke="#9fea00" />
           <path d="M28.5 34c2 3 3 4.5 3 6a3 3 0 0 1-6 0c0-1.5 1-3 3-6Z" fill="#a6f400" />
         </>}
-      </svg>
+      </svg>}
     </span>
   );
 }
@@ -110,7 +113,6 @@ export default function ProductsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [apiError, setApiError] = useState("");
   const [companyName, setCompanyName] = useState("Auto CT");
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   const currentUnits = products.reduce((sum, product) => sum + product.stock, 0);
   const currentValue = products.reduce((sum, product) => sum + product.stock * product.price, 0);
@@ -127,7 +129,7 @@ export default function ProductsPage() {
     async function loadProducts() {
       try {
         const response = await fetch("/api/admin/catalog", { cache: "no-store" });
-        const result = await response.json() as { products?: Array<{ id: string; nome: string; descricao: string | null; estoque: number; preco: number | string }>; companyName?: string; message?: string };
+        const result = await response.json() as { products?: Array<{ id: string; nome: string; descricao: string | null; estoque: number; preco: number | string; imagem_url: string | null }>; companyName?: string; message?: string };
         if (!response.ok) throw new Error(result.message || "Não foi possível carregar os produtos.");
         if (active) {
           setProducts((result.products ?? []).map(fromRecord));
@@ -160,9 +162,10 @@ export default function ProductsPage() {
           description: draft.description,
           stock: draft.stock,
           price: draft.price,
+          imageUrl: draft.imageUrl,
         }),
       });
-      const result = await response.json() as { product?: { id: string; nome: string; descricao: string | null; estoque: number; preco: number | string }; message?: string };
+      const result = await response.json() as { product?: { id: string; nome: string; descricao: string | null; estoque: number; preco: number | string; imagem_url: string | null }; message?: string };
       if (!response.ok || !result.product) throw new Error(result.message || "Não foi possível salvar o produto.");
       const saved = fromRecord(result.product);
       setProducts((current) => isNew ? [saved, ...current] : current.map((product) => product.id === saved.id ? saved : product));
@@ -207,6 +210,7 @@ export default function ProductsPage() {
         <nav className={chrome.navigation}>
           <Link href="/dashboard" className={chrome.navItem} aria-label="Visão geral"><House /></Link>
           <Link href="/dashboard/produtos" className={`${chrome.navItem} ${chrome.navActive}`} aria-label="Produtos" aria-current="page"><Package /></Link>
+          <Link href="/dashboard/servicos" className={chrome.navItem} aria-label="Serviços"><Wrench /></Link>
           <Link href="/dashboard/configuracao" className={chrome.navItem} aria-label="Configurações"><Settings /></Link>
         </nav>
       </aside>
@@ -218,11 +222,7 @@ export default function ProductsPage() {
               <Image src="/assets/Auto%20CT%20transparent%20logo-2.webp" alt="Auto CT Auto Center" width={420} height={210} priority className={chrome.logo} style={{ width: "100%", height: "auto" }} />
             </Link>
             <div className={chrome.topActions}>
-              <SignOutButton />
-              <div className={chrome.menuAnchor}>
-                <button className={chrome.notificationButton} type="button" aria-label="Notificações" aria-expanded={notificationsOpen} onClick={() => setNotificationsOpen((value) => !value)}><Bell /><span className={chrome.notificationDot} /></button>
-                {notificationsOpen && <div className={`${chrome.popover} ${chrome.notificationPopover}`} role="status"><strong>Tudo em dia</strong><span>Você não tem novas notificações.</span></div>}
-              </div>
+              <DashboardActions />
               <div className={chrome.menuAnchor}>
                 <div className={chrome.branchButton}><Building2 className={chrome.branchIcon} /><span>{companyName}</span></div>
               </div>
@@ -248,7 +248,7 @@ export default function ProductsPage() {
             <label className={styles.searchBox}><Search aria-hidden="true" /><span className={styles.srOnly}>Buscar produto</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar produto por nome ou descrição..." /></label>
           </div>
           {apiError && <p className={styles.apiError} role="alert">{apiError}</p>}
-          {isLoading && <p className={styles.loadingState} role="status">Carregando produtos do Supabase...</p>}
+          {isLoading && <p className={styles.loadingState} role="status">Carregando produtos...</p>}
 
           <section className={styles.tableCard} aria-label="Produtos cadastrados">
             <div className={styles.tableScroll}>
@@ -258,7 +258,7 @@ export default function ProductsPage() {
                   {filteredProducts.map((product) => {
                     const low = product.stock <= 5;
                     return <tr key={product.id} className={low ? styles.lowRow : ""}>
-                      <td><div className={styles.productCell}><ProductThumbnail art={product.art} /><div><strong>{product.name}</strong><span>{product.description || "Sem descrição"}</span></div></div></td>
+                      <td><div className={styles.productCell}><ProductThumbnail art={product.art} imageUrl={product.imageUrl} /><div><strong>{product.name}</strong><span>{product.description || "Sem descrição"}</span></div></div></td>
                       <td className={low ? styles.lowStock : styles.stock}>{product.stock} <span>un</span></td>
                       <td className={styles.price}>{money.format(product.price)}</td>
                       <td><span className={low ? styles.lowStatus : styles.inStockStatus}>{low ? <CircleAlert /> : <CheckCircle2 />}{low ? "Baixo estoque" : "Em estoque"}</span></td>
@@ -267,13 +267,13 @@ export default function ProductsPage() {
                   })}
                 </tbody>
               </table>
-              {!isLoading && filteredProducts.length === 0 && <p className={styles.emptyState}>{products.length ? "Nenhum produto encontrado para esses filtros." : "Ainda não há produtos cadastrados no Supabase."}</p>}
+              {!isLoading && filteredProducts.length === 0 && <p className={styles.emptyState}>{products.length ? "Nenhum produto encontrado para esses filtros." : "Nenhum produto cadastrado ainda."}</p>}
             </div>
           </section>
         </div>
       </main>
 
-      {modal && <div className={styles.modalOverlay} onMouseDown={(event) => { if (event.target === event.currentTarget && !isSaving) setModal(null); }}><section className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="product-dialog-title"><div className={styles.modalHeader}><h2 id="product-dialog-title">{modal === "new" ? "Novo Produto" : modal === "edit" ? "Editar Produto" : "Detalhes do Produto"}</h2><button type="button" aria-label="Fechar" onClick={() => setModal(null)}><X /></button></div>{modal === "view" ? <div className={styles.productDetail}><ProductThumbnail art={draft.art} /><div><strong>{draft.name}</strong><span>{draft.description || "Sem descrição"}</span></div><dl><div><dt>Estoque</dt><dd>{draft.stock} un</dd></div><div><dt>Preço</dt><dd>{money.format(draft.price)}</dd></div></dl><button type="button" onClick={() => setModal(null)}>Fechar</button></div> : <form className={styles.productForm} onSubmit={saveProduct}><label>Nome<input required autoFocus minLength={2} maxLength={120} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label><label>Descrição<input maxLength={5000} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label><div className={styles.formGrid}><label>Estoque<input type="number" min="0" step="1" required value={draft.stock} onChange={(event) => setDraft({ ...draft, stock: Number(event.target.value) })} /></label><label>Preço (R$)<input type="number" min="0" step="0.01" required value={draft.price} onChange={(event) => setDraft({ ...draft, price: Number(event.target.value) })} /></label></div><div className={styles.formActions}><button type="button" onClick={() => setModal(null)} disabled={isSaving}>Cancelar</button><button type="submit" disabled={isSaving}>{isSaving ? "Salvando..." : "Salvar produto"}</button></div></form>}</section></div>}
+      {modal && <div className={styles.modalOverlay} onMouseDown={(event) => { if (event.target === event.currentTarget && !isSaving) setModal(null); }}><section className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="product-dialog-title"><div className={styles.modalHeader}><h2 id="product-dialog-title">{modal === "new" ? "Novo Produto" : modal === "edit" ? "Editar Produto" : "Detalhes do Produto"}</h2><button type="button" aria-label="Fechar" onClick={() => setModal(null)}><X /></button></div>{modal === "view" ? <div className={styles.productDetail}><ProductThumbnail art={draft.art} imageUrl={draft.imageUrl} /><div><strong>{draft.name}</strong><span>{draft.description || "Sem descrição"}</span></div><dl><div><dt>Estoque</dt><dd>{draft.stock} un</dd></div><div><dt>Preço</dt><dd>{money.format(draft.price)}</dd></div></dl><button type="button" onClick={() => setModal(null)}>Fechar</button></div> : <form className={styles.productForm} onSubmit={saveProduct}><label>Nome<input required autoFocus minLength={2} maxLength={120} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label><label>Descrição<input maxLength={5000} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label><CatalogImageField bucket="produtos" imageUrl={draft.imageUrl} onChange={(imageUrl) => setDraft((current) => ({ ...current, imageUrl }))} disabled={isSaving} /><div className={styles.formGrid}><label>Estoque<input type="number" min="0" step="1" required value={draft.stock} onChange={(event) => setDraft({ ...draft, stock: Number(event.target.value) })} /></label><label>Preço (R$)<input type="number" min="0" step="0.01" required value={draft.price} onChange={(event) => setDraft({ ...draft, price: Number(event.target.value) })} /></label></div><div className={styles.formActions}><button type="button" onClick={() => setModal(null)} disabled={isSaving}>Cancelar</button><button type="submit" disabled={isSaving}>{isSaving ? "Salvando..." : "Salvar produto"}</button></div></form>}</section></div>}
 
       {deleteTarget && <div className={styles.modalOverlay}><section className={styles.confirmModal} role="alertdialog" aria-modal="true" aria-labelledby="delete-title"><h2 id="delete-title">Desativar produto?</h2><p>{deleteTarget.name} será removido do catálogo ativo. O registro e o histórico de vendas serão preservados.</p><div><button type="button" onClick={() => setDeleteTarget(null)} disabled={isSaving}>Cancelar</button><button type="button" onClick={deactivateProduct} disabled={isSaving}>{isSaving ? "Desativando..." : "Desativar"}</button></div></section></div>}
     </div>

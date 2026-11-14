@@ -7,6 +7,7 @@ export type Service = {
   description: string;
   price: number;
   durationMinutes: number;
+  imageUrl: string | null;
   Icon: LucideIcon;
   tone: string;
 };
@@ -17,6 +18,7 @@ type CatalogService = {
   description: unknown;
   price: unknown;
   durationMinutes: unknown;
+  imageUrl: unknown;
 };
 
 export function getServiceAppearance(name: string): Pick<Service, "Icon" | "tone"> {
@@ -52,6 +54,7 @@ export function mapCatalogService(value: unknown): Service | null {
     description: typeof item.description === "string" ? item.description : "",
     price: item.price,
     durationMinutes: item.durationMinutes,
+    imageUrl: typeof item.imageUrl === "string" ? item.imageUrl : null,
     ...getServiceAppearance(item.name),
   };
 }

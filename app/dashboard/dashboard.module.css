@@ -156,9 +156,11 @@
 .topActions {
   display: flex;
   align-items: center;
-  gap: 34px;
+  gap: 16px;
   padding-right: 10px;
 }
+
+.dashboardActions { display: flex; align-items: center; gap: 9px; }
 
 .menuAnchor { position: relative; }
 
@@ -176,12 +178,12 @@
 }
 
 .notificationButton:hover,
-.branchButton:hover,
-.signOutButton:hover { border-color: rgba(174, 240, 0, .78); }
+.settingsButton:hover,
+.branchButton:hover { border-color: rgba(174, 240, 0, .78); }
 
 .notificationButton svg { width: 19px; height: 19px; stroke-width: 1.8; }
 
-.signOutButton {
+.settingsButton {
   width: 52px;
   height: 52px;
   display: grid;
@@ -193,8 +195,8 @@
   cursor: pointer;
 }
 
-.signOutButton:disabled { cursor: wait; opacity: .65; }
-.signOutButton svg { width: 19px; height: 19px; stroke-width: 1.8; }
+.settingsButton svg { width: 20px; height: 20px; stroke-width: 1.8; }
+.settingsButton[aria-expanded="true"] { border-color: rgba(174, 240, 0, .78); color: var(--lime); }
 
 .notificationDot {
   position: absolute;
@@ -272,6 +274,86 @@
 
 .notificationPopover strong { color: #f3f5ef; }
 .notificationPopover span { color: #a1a69d; line-height: 1.5; }
+
+.actionMenu {
+  position: absolute;
+  z-index: 8;
+  top: calc(100% + 9px);
+  right: 0;
+  width: min(228px, calc(100vw - 32px));
+  padding: 7px;
+  border: 1px solid rgba(226, 233, 224, .25);
+  border-radius: 14px;
+  background: #121410;
+  box-shadow: 0 16px 38px rgba(0, 0, 0, .58);
+}
+
+.actionMenuItem {
+  width: 100%;
+  min-height: 43px;
+  padding: 0 11px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border: 0;
+  border-radius: 9px;
+  color: #e8ebe4;
+  background: transparent;
+  font-size: 13px;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.actionMenuItem:hover { color: #fff; background: rgba(255, 255, 255, .075); }
+.actionMenuItem svg { width: 18px; height: 18px; flex: 0 0 auto; color: var(--lime); }
+.actionMenuLogout { color: #ffc2c2; }
+.actionMenuLogout svg { color: #ff8787; }
+.menuSeparator { height: 1px; margin: 6px 5px; display: block; background: rgba(255, 255, 255, .1); }
+
+.logoutOverlay {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  padding: 20px;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, .72);
+  backdrop-filter: blur(6px);
+}
+
+.logoutDialog {
+  width: min(100%, 430px);
+  padding: 22px;
+  border: 1px solid rgba(187, 206, 172, .35);
+  border-radius: 19px;
+  color: #f3f5ef;
+  background: linear-gradient(145deg, #1d211a, #0b0d0a 76%);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, .65), 0 0 22px rgba(150, 227, 0, .08);
+}
+
+.logoutHeading, .logoutHeading > div { display: flex; align-items: center; }
+.logoutHeading { justify-content: space-between; gap: 14px; }
+.logoutHeading > div { min-width: 0; gap: 12px; }
+.logoutHeading h2 { margin: 0; font-size: 20px; font-weight: 730; }
+.logoutHeading > button { width: 34px; height: 34px; flex: 0 0 auto; display: grid; place-items: center; border: 1px solid #454a40; border-radius: 10px; color: #d9ded5; background: #171a15; cursor: pointer; }
+.logoutHeading > button:disabled { cursor: wait; opacity: .55; }
+.logoutHeading > button svg { width: 18px; height: 18px; }
+.logoutIcon { width: 42px; height: 42px; flex: 0 0 auto; display: grid; place-items: center; border: 1px solid rgba(255, 137, 137, .22); border-radius: 13px; color: #ff9696; background: rgba(151, 34, 34, .16); }
+.logoutIcon svg { width: 20px; height: 20px; }
+.logoutDialog > p { margin: 16px 0 0; color: #b8beb3; font-size: 13px; line-height: 1.55; }
+.logoutDialog > .logoutError { margin-top: 12px; color: #ffbaba; }
+.logoutActions { margin-top: 23px; display: flex; justify-content: flex-end; gap: 10px; }
+.logoutActions button { min-height: 42px; padding: 0 15px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 11px; font-size: 13px; font-weight: 700; cursor: pointer; }
+.logoutActions button:disabled { cursor: wait; opacity: .65; }
+.logoutActions svg { width: 17px; height: 17px; }
+.logoutCancel { border: 1px solid #4a5045; color: #e3e7df; background: #171a15; }
+.logoutCancel:hover { background: #22271e; }
+.logoutConfirm { border: 1px solid #e47e7e; color: #fff5f5; background: linear-gradient(180deg, #8d3434, #692626); }
+.logoutConfirm:hover { filter: brightness(1.08); }
+.spinning { animation: dashboard-spin 1s linear infinite; }
+
+@keyframes dashboard-spin { to { transform: rotate(360deg); } }
 
 .pageHeading {
   min-height: 74px;
@@ -732,9 +814,10 @@
   .logoLink { width: min(52vw, 260px); height: auto; }
   .topActions { gap: 9px; padding: 0; }
   .notificationButton { width: 42px; height: 42px; border-radius: 13px; }
-  .signOutButton { width: 42px; height: 42px; border-radius: 13px; }
+  .settingsButton { width: 42px; height: 42px; border-radius: 13px; }
   .notificationButton svg { width: 18px; height: 18px; }
-  .signOutButton svg { width: 18px; height: 18px; }
+  .settingsButton svg { width: 19px; height: 19px; }
+  .dashboardActions { gap: 6px; }
   .branchButton { min-width: 0; width: 45px; height: 42px; padding: 0; justify-content: center; border-radius: 13px; }
   .branchButton span, .branchButton .chevron { display: none; }
   .branchIcon { width: 18px; height: 18px; }

@@ -18,6 +18,6 @@ export function createPrivilegedSupabaseClient() {
   const { url } = getSupabaseConfig();
   const secretKey = process.env.SUPABASE_SECRET_KEY;
 
-  if (!secretKey) throw new Error("A chave secreta do Supabase não está configurada no servidor.");
+  if (!secretKey) throw new Error("Não foi possível conectar agora. Tente novamente.");
   return createClient(url, secretKey, authOptions);
 }

@@ -80,8 +80,12 @@ export default function ApplicationHomePage() {
               <div className={styles.serviceList}>
                 {services.map((service) => (
                   <article className={styles.serviceCard} key={service.id}>
-                    <div className={`${styles.serviceThumb} ${styles[service.tone]}`} aria-hidden="true">
-                      <service.Icon strokeWidth={1.65} />
+                    <div
+                      className={[styles.serviceThumb, service.imageUrl ? styles.servicePhoto : styles[service.tone]].join(" ")}
+                      style={service.imageUrl ? { backgroundImage: "url(" + JSON.stringify(service.imageUrl) + ")" } : undefined}
+                      aria-hidden="true"
+                    >
+                      {!service.imageUrl && <service.Icon strokeWidth={1.65} />}
                     </div>
                     <div className={styles.serviceInfo}>
                       <h3>{service.name}</h3>

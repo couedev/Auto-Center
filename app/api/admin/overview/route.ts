@@ -91,7 +91,7 @@ export async function GET(request: Request) {
 
     const queryErrors = [ordersResult.error, previousOrdersResult.error, appointmentsResult.error, completedResult.error, progressResult.error, previousAppointmentsResult.error, previousCompletedResult.error, agendaResult.error];
     if (queryErrors.some(Boolean)) {
-      return apiJson({ message: "Não foi possível carregar os dados da dashboard. Confira se o schema MVP está aplicado." }, 503);
+      return apiJson({ message: "Não foi possível carregar as informações do painel. Tente novamente em instantes." }, 503);
     }
 
     const currentOrders = (ordersResult.data ?? []) as OrderRow[];
@@ -158,7 +158,7 @@ export async function GET(request: Request) {
       },
     });
   } catch {
-    return apiJson({ message: "Ocorreu um erro ao consultar os dados da dashboard." }, 503);
+    return apiJson({ message: "Ocorreu um erro ao carregar as informações do painel." }, 503);
   }
 }
 

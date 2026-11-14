@@ -7,11 +7,11 @@ import type { CSSProperties, FormEvent } from "react";
 import {
   Bell, Brush, Building2, CalendarDays, Check, CheckCircle2,
   Clock3, House, MessageCircle, Package, Phone, Save,
-  Settings, SlidersHorizontal, Store,
+  Settings, SlidersHorizontal, Store, Wrench,
 } from "lucide-react";
 import chrome from "../dashboard.module.css";
 import styles from "./settings.module.css";
-import SignOutButton from "../sign-out-button";
+import DashboardActions from "../dashboard-actions";
 
 type Theme = "dark" | "light";
 type AutoCenterSettings = {
@@ -70,7 +70,6 @@ export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -181,7 +180,7 @@ export default function SettingsPage() {
       } catch {
         // Preferências visuais continuam funcionando nesta sessão se o navegador bloquear armazenamento.
       }
-      setSavedMessage("Dados da empresa salvos no Supabase. Aparência e preferências ficam neste navegador.");
+      setSavedMessage("Alterações salvas com sucesso.");
     } catch (error) {
       setSavedMessage(error instanceof Error ? error.message : "Não foi possível salvar as configurações.");
     } finally {
@@ -199,6 +198,7 @@ export default function SettingsPage() {
         <nav className={chrome.navigation}>
           <Link href="/dashboard" className={chrome.navItem} aria-label="Visão geral"><House /></Link>
           <Link href="/dashboard/produtos" className={chrome.navItem} aria-label="Produtos"><Package /></Link>
+          <Link href="/dashboard/servicos" className={chrome.navItem} aria-label="Serviços"><Wrench /></Link>
           <Link href="/dashboard/configuracao" className={`${chrome.navItem} ${chrome.navActive}`} aria-label="Configurações" aria-current="page"><Settings /></Link>
         </nav>
       </aside>
@@ -210,11 +210,7 @@ export default function SettingsPage() {
               <Image src="/assets/Auto%20CT%20transparent%20logo-2.webp" alt="Auto CT Auto Center" width={420} height={210} priority className={chrome.logo} style={{ width: "100%", height: "auto" }} />
             </Link>
             <div className={chrome.topActions}>
-              <SignOutButton />
-              <div className={chrome.menuAnchor}>
-                <button className={chrome.notificationButton} type="button" aria-label="Notificações" aria-expanded={notificationsOpen} onClick={() => setNotificationsOpen((current) => !current)}><Bell /><span className={chrome.notificationDot} /></button>
-                {notificationsOpen && <div className={`${chrome.popover} ${chrome.notificationPopover}`} role="status"><strong>Tudo em dia</strong><span>Você não tem novas notificações.</span></div>}
-              </div>
+              <DashboardActions />
               <div className={chrome.menuAnchor}>
                 <div className={chrome.branchButton}><Building2 className={chrome.branchIcon} /><span>{values.company}</span></div>
               </div>

@@ -1,4 +1,6 @@
 import { apiJson, getAdminContext } from "@/lib/supabase/admin";
+import { catalogImagePath, isCatalogImageUrl } from "@/lib/supabase/catalog-images";
+import { createPrivilegedSupabaseClient } from "@/lib/supabase/app";
 
 type ProductInput = {
   id?: unknown;
@@ -6,6 +8,7 @@ type ProductInput = {
   description?: unknown;
   stock?: unknown;
   price?: unknown;
+  imageUrl?: unknown;
 };
 
 function readProduct(payload: unknown) {
@@ -15,14 +18,16 @@ function readProduct(payload: unknown) {
   const description = typeof body.description === "string" ? body.description.trim() : "";
   const stock = body.stock;
   const price = body.price;
+  const imageUrl = body.imageUrl;
 
   if (
     name.length < 2 || name.length > 120 || description.length > 5000 ||
     typeof stock !== "number" || !Number.isSafeInteger(stock) || stock < 0 ||
-    typeof price !== "number" || !Number.isFinite(price) || price < 0 || price > 9_999_999_999.99
+    typeof price !== "number" || !Number.isFinite(price) || price < 0 || price > 9_999_999_999.99 ||
+    (imageUrl !== undefined && !isCatalogImageUrl(imageUrl, "produtos"))
   ) return null;
 
-  return { name, description: description || null, stock, price };
+  return { name, description: description || null, stock, price, imageUrl: imageUrl as string | null | undefined };
 }
 
 function validId(value: unknown): value is string {
@@ -37,7 +42,7 @@ export async function GET() {
     const [productsResult, settingsResult] = await Promise.all([
       context.supabase
         .from("catalogo")
-        .select("id,nome,descricao,preco,estoque,ativo")
+        .select("id,nome,descricao,preco,estoque,imagem_url,ativo")
         .eq("tipo", "produto")
         .eq("ativo", true)
         .order("criado_em", { ascending: false }),
@@ -74,9 +79,10 @@ export async function POST(request: Request) {
         descricao: product.description,
         preco: product.price,
         estoque: product.stock,
+        imagem_url: product.imageUrl ?? null,
         ativo: true,
       })
-      .select("id,nome,descricao,preco,estoque,ativo")
+      .select("id,nome,descricao,preco,estoque,imagem_url,ativo")
       .single();
 
     if (error) return apiJson({ message: "Não foi possível salvar o produto." }, 503);
@@ -106,6 +112,15 @@ export async function PATCH(request: Request) {
   if (!product) return apiJson({ message: "Confira nome, descrição, estoque e preço do produto." }, 400);
 
   try {
+    const { data: existing, error: existingError } = await context.supabase
+      .from("catalogo")
+      .select("imagem_url")
+      .eq("id", body.id)
+      .eq("tipo", "produto")
+      .maybeSingle();
+    if (existingError) return apiJson({ message: "Não foi possível atualizar o produto." }, 503);
+    if (!existing) return apiJson({ message: "Produto não encontrado." }, 404);
+
     const { data, error } = await context.supabase
       .from("catalogo")
       .update({
@@ -113,14 +128,19 @@ export async function PATCH(request: Request) {
         descricao: product.description,
         preco: product.price,
         estoque: product.stock,
+        ...(product.imageUrl === undefined ? {} : { imagem_url: product.imageUrl }),
       })
       .eq("id", body.id)
       .eq("tipo", "produto")
-      .select("id,nome,descricao,preco,estoque,ativo")
+      .select("id,nome,descricao,preco,estoque,imagem_url,ativo")
       .maybeSingle();
 
     if (error) return apiJson({ message: "Não foi possível atualizar o produto." }, 503);
     if (!data) return apiJson({ message: "Produto não encontrado." }, 404);
+    const oldImagePath = catalogImagePath(existing.imagem_url, "produtos");
+    if (oldImagePath && oldImagePath !== catalogImagePath(data.imagem_url, "produtos")) {
+      try { await createPrivilegedSupabaseClient().storage.from("produtos").remove([oldImagePath]); } catch {}
+    }
     return apiJson({ product: data });
   } catch {
     return apiJson({ message: "Não foi possível atualizar o produto." }, 503);

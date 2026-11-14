@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import {
   ArrowRight,
   ArrowUpRight,
-  Bell,
   Building2,
   CalendarDays,
   ChartNoAxesColumnIncreasing,
@@ -22,7 +21,7 @@ import {
   Wrench,
 } from "lucide-react";
 import styles from "./dashboard.module.css";
-import SignOutButton from "./sign-out-button";
+import DashboardActions from "./dashboard-actions";
 
 type Period = "Hoje" | "Semana" | "Mês";
 type AppointmentStatus = "pending" | "progress" | "done";
@@ -60,10 +59,15 @@ const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL
 const compactMoney = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", notation: "compact", maximumFractionDigits: 1 });
 
 function RevenueChart({ period, revenue, trend, series }: { period: Period; revenue: number; trend: string; series: RevenuePoint[] }) {
-  const maximum = Math.max(...series.map((point) => point.amount), 0);
-  const labels = series.length ? series : [{ label: "—", amount: 0 }];
+  const labels = series.length
+    ? series.map((point) => ({
+        ...point,
+        amount: Number.isFinite(point.amount) ? Math.max(0, point.amount) : 0,
+      }))
+    : [{ label: "—", amount: 0 }];
+  const maximum = Math.max(...labels.map((point) => point.amount), 0);
   const points = labels.map((point, index) => ({
-    x: 44 + (512 / (labels.length - 1)) * index,
+    x: labels.length > 1 ? 44 + (512 / (labels.length - 1)) * index : 300,
     y: 264 - (maximum > 0 ? point.amount / maximum : 0) * 220,
   }));
   const line = points.reduce((path, point, index) => {
@@ -131,7 +135,6 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [apiError, setApiError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -148,7 +151,7 @@ export default function DashboardPage() {
           appointmentCounts?: Record<AppointmentStatus, number>;
           message?: string;
         };
-        if (!response.ok) throw new Error(result.message || "Não foi possível carregar a dashboard.");
+        if (!response.ok) throw new Error(result.message || "Não foi possível carregar o painel.");
         if (!active) return;
         setCompanyName(result.companyName || "Auto CT");
         setMetrics(result.metrics ?? zeroMetrics);
@@ -156,7 +159,7 @@ export default function DashboardPage() {
         setAppointments(result.appointments ?? []);
         setAppointmentCounts(result.appointmentCounts ?? { pending: 0, progress: 0, done: 0 });
       } catch (error) {
-        if (active) setApiError(error instanceof Error ? error.message : "Não foi possível carregar a dashboard.");
+        if (active) setApiError(error instanceof Error ? error.message : "Não foi possível carregar o painel.");
       } finally {
         if (active) setIsLoading(false);
       }
@@ -198,6 +201,7 @@ export default function DashboardPage() {
         <nav className={styles.navigation}>
           <a href="#visao-geral" className={`${styles.navItem} ${styles.navActive}`} aria-label="Visão geral" aria-current="page"><House /></a>
           <a href="/dashboard/produtos" className={styles.navItem} aria-label="Produtos"><Package /></a>
+          <a href="/dashboard/servicos" className={styles.navItem} aria-label="Serviços"><Wrench /></a>
           <a href="/dashboard/configuracao" className={styles.navItem} aria-label="Configurações"><Settings /></a>
         </nav>
       </aside>
@@ -218,15 +222,7 @@ export default function DashboardPage() {
             </a>
 
             <div className={styles.topActions}>
-              <SignOutButton />
-              <div className={styles.menuAnchor}>
-                <button className={styles.notificationButton} type="button" aria-label="Notificações" aria-expanded={notificationsOpen} onClick={() => setNotificationsOpen((open) => !open)}>
-                  <Bell />
-                  <span className={styles.notificationDot} />
-                </button>
-                {notificationsOpen && <div className={`${styles.popover} ${styles.notificationPopover}`} role="status"><strong>Tudo em dia</strong><span>Você não tem novas notificações.</span></div>}
-              </div>
-
+              <DashboardActions />
               <div className={styles.menuAnchor}>
                 <div className={styles.branchButton}>
                   <Building2 className={styles.branchIcon} />
@@ -249,7 +245,7 @@ export default function DashboardPage() {
           </section>
 
           {apiError && <p className={styles.dashboardError} role="alert">{apiError}</p>}
-          {isLoading && <p className={styles.dashboardLoading} role="status">Carregando dados do Supabase...</p>}
+          {isLoading && <p className={styles.dashboardLoading} role="status">Carregando informações...</p>}
 
           <section className={styles.metrics} aria-label={`Indicadores de ${period.toLowerCase()}`}>
             <article className={`${styles.metricCard} ${styles.metricFeatured}`}>

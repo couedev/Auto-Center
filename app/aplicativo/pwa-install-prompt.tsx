@@ -13,9 +13,6 @@ type BeforeInstallPromptEvent = Event & {
 type Platform = { isAndroid: boolean; isIos: boolean; isMobile: boolean; isSafari: boolean };
 type NavigatorWithInstall = Navigator & { install?: () => Promise<void> };
 
-const DISMISS_KEY = "auto-ct-pwa-install-dismissed-until";
-const DISMISS_DAYS = 7;
-
 function isStandaloneMode() {
   if (typeof window === "undefined") return false;
   return window.matchMedia("(display-mode: standalone)").matches ||
@@ -47,9 +44,6 @@ export default function PwaInstallPrompt() {
   const [copyError, setCopyError] = useState(false);
   const dismissPrompt = useCallback(() => {
     setIsDismissed(true);
-    try {
-      window.localStorage.setItem(DISMISS_KEY, String(Date.now() + DISMISS_DAYS * 24 * 60 * 60 * 1_000));
-    } catch {}
   }, []);
 
   useEffect(() => {
@@ -68,7 +62,6 @@ export default function PwaInstallPrompt() {
     function handleAppInstalled() {
       setIsStandalone(true);
       setDeferredPrompt(null);
-      try { window.localStorage.removeItem(DISMISS_KEY); } catch {}
     }
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
@@ -80,12 +73,7 @@ export default function PwaInstallPrompt() {
       setPlatform(getPlatform());
       setSupportsWebInstall(nativeInstall);
       setIsStandalone(isStandaloneMode());
-      try {
-        const dismissedUntil = Number(window.localStorage.getItem(DISMISS_KEY) ?? 0);
-        setIsDismissed(dismissedUntil > Date.now());
-      } catch {
-        setIsDismissed(false);
-      }
+      setIsDismissed(false);
       setReady(true);
     });
 
@@ -138,7 +126,6 @@ export default function PwaInstallPrompt() {
       const choice = await promptEvent.userChoice;
       if (choice.outcome === "accepted") {
         setIsStandalone(true);
-        try { window.localStorage.removeItem(DISMISS_KEY); } catch {}
       } else {
         dismissPrompt();
       }
@@ -194,22 +181,28 @@ export default function PwaInstallPrompt() {
 
         <p className={styles.eyebrow}>APLICATIVO AUTO CT</p>
         <h2 className={styles.title} id="install-title">Instale o aplicativo <span>Auto CT</span></h2>
-        <p className={styles.description}>Mais praticidade para cuidar do seu veículo, direto da tela inicial do celular.</p>
+        <p className={styles.description}>
+          {showIosGuide
+            ? "Siga os passos abaixo para adicionar o Auto CT à tela inicial."
+            : "Mais praticidade para cuidar do seu veículo, direto da tela inicial do celular."}
+        </p>
 
-        <ul className={styles.features}>
-          <li>
-            <span className={styles.featureIcon}><CalendarDays aria-hidden="true" /></span>
-            <span><strong>Agende seu serviço</strong><small>Escolha o dia e o horário ideal.</small></span>
-          </li>
-          <li>
-            <span className={styles.featureIcon}><Tag aria-hidden="true" /></span>
-            <span><strong>Confira serviços e preços</strong><small>Veja as opções disponíveis na unidade.</small></span>
-          </li>
-          <li>
-            <span className={styles.featureIcon}><Bell aria-hidden="true" /></span>
-            <span><strong>Acompanhe seus agendamentos</strong><small>Consulte os pedidos direto no seu perfil.</small></span>
-          </li>
-        </ul>
+        {!showIosGuide && (
+          <ul className={styles.features}>
+            <li>
+              <span className={styles.featureIcon}><CalendarDays aria-hidden="true" /></span>
+              <span><strong>Agende seu serviço</strong><small>Escolha o dia e o horário ideal.</small></span>
+            </li>
+            <li>
+              <span className={styles.featureIcon}><Tag aria-hidden="true" /></span>
+              <span><strong>Confira serviços e preços</strong><small>Veja as opções disponíveis na unidade.</small></span>
+            </li>
+            <li>
+              <span className={styles.featureIcon}><Bell aria-hidden="true" /></span>
+              <span><strong>Acompanhe seus agendamentos</strong><small>Consulte os pedidos direto no seu perfil.</small></span>
+            </li>
+          </ul>
+        )}
 
         {canInstall && (
           <button type="button" className={styles.installButton} onClick={installApp} disabled={isInstalling}>

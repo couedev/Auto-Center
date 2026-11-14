@@ -15,7 +15,7 @@ export async function getAdminContext() {
   } catch {
     return {
       ok: false as const,
-      response: apiJson({ message: "A conexão com o Supabase não está configurada." }, 503),
+      response: apiJson({ message: "Não foi possível acessar os dados agora. Tente novamente." }, 503),
     };
   }
 
@@ -35,7 +35,7 @@ export async function getAdminContext() {
   if (profileError) {
     return {
       ok: false as const,
-      response: apiJson({ message: "Não foi possível validar o perfil de administrador." }, 503),
+      response: apiJson({ message: "Não foi possível acessar sua conta. Tente novamente." }, 503),
     };
   }
 

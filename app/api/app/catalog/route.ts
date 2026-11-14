@@ -8,7 +8,7 @@ export async function GET() {
     const [{ data: catalog, error: catalogError }, { data: settings, error: settingsError }] = await Promise.all([
       supabase
         .from("catalogo")
-        .select("id,nome,descricao,preco,duracao_minutos")
+        .select("id,nome,descricao,preco,duracao_minutos,imagem_url")
         .eq("tipo", "servico")
         .eq("ativo", true)
         .order("nome", { ascending: true }),
@@ -26,6 +26,7 @@ export async function GET() {
       description: item.descricao ?? "",
       price: Number(item.preco),
       durationMinutes: Number(item.duracao_minutos),
+      imageUrl: item.imagem_url,
     })).filter((item) =>
       typeof item.id === "string" && typeof item.name === "string" &&
       Number.isFinite(item.price) && Number.isFinite(item.durationMinutes),

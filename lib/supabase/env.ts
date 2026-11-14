@@ -3,7 +3,7 @@ export function getSupabaseConfig() {
   const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
   if (!url || !publishableKey) {
-    throw new Error("As variáveis públicas do Supabase não estão configuradas.");
+    throw new Error("Não foi possível conectar agora. Tente novamente.");
   }
 
   return { url, publishableKey };
