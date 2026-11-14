@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -11,7 +11,6 @@ import {
   ChartNoAxesColumnIncreasing,
   Check,
   CheckCircle2,
-  ChevronDown,
   Clock3,
   Coins,
   Droplets,
@@ -23,12 +22,13 @@ import {
   Wrench,
 } from "lucide-react";
 import styles from "./dashboard.module.css";
+import SignOutButton from "./sign-out-button";
 
 type Period = "Hoje" | "Semana" | "Mês";
 type AppointmentStatus = "pending" | "progress" | "done";
 
 type Appointment = {
-  id: number;
+  id: string;
   time: string;
   customer: string;
   vehicle: string;
@@ -37,56 +37,34 @@ type Appointment = {
   kind: "wash" | "maintenance";
 };
 
-const initialAppointments: Appointment[] = [
-  { id: 1, time: "09:00", customer: "João Silva", vehicle: "Toyota Corolla", service: "Lavagem Completa", status: "progress", kind: "wash" },
-  { id: 2, time: "10:30", customer: "Marcos Oliveira", vehicle: "Hyundai HB20", service: "Revisão Básica", status: "progress", kind: "maintenance" },
-  { id: 3, time: "11:30", customer: "Fernanda Costa", vehicle: "Jeep Compass", service: "Lavagem + Higienização", status: "progress", kind: "wash" },
-  { id: 4, time: "12:15", customer: "Ana Beatriz", vehicle: "Honda HR-V", service: "Lavagem Completa", status: "pending", kind: "wash" },
-  { id: 5, time: "13:00", customer: "Lucas Ferreira", vehicle: "VW T-Cross", service: "Revisão Básica", status: "pending", kind: "maintenance" },
-  { id: 6, time: "14:30", customer: "Paula Martins", vehicle: "Chevrolet Onix", service: "Lavagem Simples", status: "pending", kind: "wash" },
-  { id: 7, time: "08:00", customer: "Ricardo Nunes", vehicle: "Honda Civic", service: "Polimento", status: "done", kind: "maintenance" },
-  { id: 8, time: "08:30", customer: "Carla Mendes", vehicle: "Fiat Pulse", service: "Lavagem Completa", status: "done", kind: "wash" },
-  { id: 9, time: "08:45", customer: "André Rocha", vehicle: "Toyota Yaris", service: "Higienização", status: "done", kind: "wash" },
-];
-
 const periods: Period[] = ["Hoje", "Semana", "Mês"];
-const periodMetrics: Record<Period, { revenue: string; appointments: number; completed: number; ticket: string; trends: [string, string, string, string]; comparison: string }> = {
-  Hoje: { revenue: "R$ 3.240,00", appointments: 8, completed: 5, ticket: "R$ 648,00", trends: ["+8,4%", "+14,3%", "+25,0%", "+4,2%"], comparison: "em relação a ontem" },
-  Semana: { revenue: "R$ 20.847,00", appointments: 36, completed: 28, ticket: "R$ 744,54", trends: ["+12,4%", "+20,0%", "+16,7%", "+8,9%"], comparison: "em relação à semana anterior" },
-  Mês: { revenue: "R$ 83.210,00", appointments: 142, completed: 116, ticket: "R$ 716,00", trends: ["+18,2%", "+14,5%", "+17,1%", "+6,8%"], comparison: "em relação ao mês anterior" },
+type RevenuePoint = { label: string; amount: number };
+type Metrics = {
+  revenue: number;
+  appointments: number;
+  completed: number;
+  ticket: number;
+  trends: [string, string, string, string];
+  comparison: string;
 };
 
-function RevenueChart({ period }: { period: Period }) {
-  const chart = {
-    Hoje: {
-      title: "Faturamento de Hoje",
-      amount: "R$ 3.240,00",
-      change: "+8,4%",
-      labels: ["08h", "09h", "10h", "11h", "12h", "13h", "14h"],
-      values: [0.24, 0.4, 0.57, 0.49, 0.68, 0.78, 0.92],
-      yLabels: ["R$ 0", "R$ 800", "R$ 1.600", "R$ 2.400", "R$ 3.200"],
-    },
-    Semana: {
-      title: "Faturamento da Semana",
-      amount: "R$ 20.847,00",
-      change: "+12,4%",
-      labels: ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"],
-      values: [0.3, 0.48, 0.61, 0.53, 0.63, 0.83, 0.9],
-      yLabels: ["R$ 0", "R$ 4.000", "R$ 8.000", "R$ 12.000", "R$ 16.000", "R$ 20.000", "R$ 24.000"],
-    },
-    Mês: {
-      title: "Faturamento do Mês",
-      amount: "R$ 83.210,00",
-      change: "+18,2%",
-      labels: ["1–5", "6–10", "11–15", "16–20", "21–25", "26–30"],
-      values: [0.24, 0.39, 0.34, 0.63, 0.7, 0.91],
-      yLabels: ["R$ 0", "R$ 20.000", "R$ 40.000", "R$ 60.000", "R$ 80.000", "R$ 100.000"],
-    },
-  }[period];
+const zeroMetrics: Metrics = {
+  revenue: 0,
+  appointments: 0,
+  completed: 0,
+  ticket: 0,
+  trends: ["0%", "0%", "0%", "0%"],
+  comparison: "em relação ao período anterior",
+};
+const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+const compactMoney = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", notation: "compact", maximumFractionDigits: 1 });
 
-  const points = chart.values.map((value, index) => ({
-    x: 44 + (512 / (chart.values.length - 1)) * index,
-    y: 264 - value * 220,
+function RevenueChart({ period, revenue, trend, series }: { period: Period; revenue: number; trend: string; series: RevenuePoint[] }) {
+  const maximum = Math.max(...series.map((point) => point.amount), 0);
+  const labels = series.length ? series : [{ label: "—", amount: 0 }];
+  const points = labels.map((point, index) => ({
+    x: 44 + (512 / (labels.length - 1)) * index,
+    y: 264 - (maximum > 0 ? point.amount / maximum : 0) * 220,
   }));
   const line = points.reduce((path, point, index) => {
     if (index === 0) return `M ${point.x} ${point.y}`;
@@ -96,21 +74,24 @@ function RevenueChart({ period }: { period: Period }) {
   }, "");
   const area = `${line} L ${points[points.length - 1].x} 264 L ${points[0].x} 264 Z`;
 
+  const title = period === "Hoje" ? "Faturamento de Hoje" : period === "Semana" ? "Faturamento da Semana" : "Faturamento do Mês";
+  const yLabels = [1, 0.75, 0.5, 0.25, 0].map((factor) => compactMoney.format(maximum * factor));
+
   return (
     <section className={`${styles.panel} ${styles.chartPanel}`} aria-labelledby="revenue-title">
       <div className={styles.panelHeading}>
         <div className={styles.panelTitle}>
           <ChartNoAxesColumnIncreasing aria-hidden="true" />
-          <h2 id="revenue-title">{chart.title}</h2>
+          <h2 id="revenue-title">{title}</h2>
         </div>
-        <div className={styles.revenueBadge}><strong>{chart.amount}</strong><span>{chart.change}</span></div>
+        <div className={styles.revenueBadge}><strong>{money.format(revenue)}</strong><span>{trend}</span></div>
       </div>
 
       <div className={styles.chartWrap}>
         <div className={styles.yAxis} aria-hidden="true">
-          {[...chart.yLabels].reverse().map((label) => <span key={label}>{label}</span>)}
+          {yLabels.map((label, index) => <span key={`${label}-${index}`}>{label}</span>)}
         </div>
-        <svg className={styles.chart} viewBox="0 0 580 300" role="img" aria-label={`${chart.title}: ${chart.amount}, variação de ${chart.change}`}>
+        <svg className={styles.chart} viewBox="0 0 580 300" role="img" aria-label={`${title}: ${money.format(revenue)}, variação de ${trend}`}>
           <defs>
             <linearGradient id="revenue-fill" x1="0" x2="0" y1="0" y2="1">
               <stop offset="0%" stopColor="#a7ed00" stopOpacity=".62" />
@@ -121,8 +102,8 @@ function RevenueChart({ period }: { period: Period }) {
               <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
             </filter>
           </defs>
-          {chart.yLabels.map((_, index) => {
-            const y = 44 + (220 / (chart.yLabels.length - 1)) * index;
+          {yLabels.map((_, index) => {
+            const y = 44 + (220 / (yLabels.length - 1)) * index;
             return <line key={index} x1="44" y1={y} x2="556" y2={y} className={styles.gridLine} />;
           })}
           <path d={area} fill="url(#revenue-fill)" />
@@ -130,8 +111,8 @@ function RevenueChart({ period }: { period: Period }) {
           {points.map((point, index) => (
             <circle key={index} cx={point.x} cy={point.y} r={index === points.length - 1 ? 6 : 4.5} className={styles.chartPoint} />
           ))}
-          {chart.labels.map((label, index) => (
-            <text key={label} x={points[index].x} y="288" textAnchor="middle" className={styles.xLabel}>{label}</text>
+          {labels.map(({ label }, index) => (
+            <text key={`${label}-${index}`} x={points[index].x} y="288" textAnchor="middle" className={styles.xLabel}>{label}</text>
           ))}
         </svg>
       </div>
@@ -142,24 +123,70 @@ function RevenueChart({ period }: { period: Period }) {
 export default function DashboardPage() {
   const [period, setPeriod] = useState<Period>("Semana");
   const [appointmentStatus, setAppointmentStatus] = useState<AppointmentStatus>("progress");
-  const [appointments, setAppointments] = useState(initialAppointments);
-  const [branch, setBranch] = useState("Auto CT - Matriz");
-  const [branchMenuOpen, setBranchMenuOpen] = useState(false);
+  const [metrics, setMetrics] = useState<Metrics>(zeroMetrics);
+  const [revenueSeries, setRevenueSeries] = useState<RevenuePoint[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [appointmentCounts, setAppointmentCounts] = useState<Record<AppointmentStatus, number>>({ pending: 0, progress: 0, done: 0 });
+  const [companyName, setCompanyName] = useState("Auto CT");
+  const [isLoading, setIsLoading] = useState(true);
+  const [apiError, setApiError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
-  const selectedMetrics = periodMetrics[period];
-  const completedCount = selectedMetrics.completed + appointments.filter((appointment) => appointment.status === "done").length - 3;
-  const pendingCount = (period === "Semana" ? 6 : period === "Hoje" ? 3 : 26) + appointments.filter((appointment) => appointment.status === "pending").length - 3;
-  const progressCount = 3 + appointments.filter((appointment) => appointment.status === "progress").length - 3;
+  useEffect(() => {
+    let active = true;
+    async function loadOverview() {
+      setIsLoading(true);
+      setApiError("");
+      try {
+        const response = await fetch(`/api/admin/overview?period=${encodeURIComponent(period)}`, { cache: "no-store" });
+        const result = await response.json() as {
+          companyName?: string;
+          metrics?: Metrics;
+          revenueSeries?: RevenuePoint[];
+          appointments?: Appointment[];
+          appointmentCounts?: Record<AppointmentStatus, number>;
+          message?: string;
+        };
+        if (!response.ok) throw new Error(result.message || "Não foi possível carregar a dashboard.");
+        if (!active) return;
+        setCompanyName(result.companyName || "Auto CT");
+        setMetrics(result.metrics ?? zeroMetrics);
+        setRevenueSeries(result.revenueSeries ?? []);
+        setAppointments(result.appointments ?? []);
+        setAppointmentCounts(result.appointmentCounts ?? { pending: 0, progress: 0, done: 0 });
+      } catch (error) {
+        if (active) setApiError(error instanceof Error ? error.message : "Não foi possível carregar a dashboard.");
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    }
+    void loadOverview();
+    return () => { active = false; };
+  }, [period, reloadKey]);
+
+  const selectedMetrics = metrics;
   const visibleAppointments = appointments.filter((appointment) => appointment.status === appointmentStatus);
   const appointmentTabs: { id: AppointmentStatus; label: string; count: number; Icon: typeof Clock3 }[] = [
-    { id: "pending", label: "Pendente", count: pendingCount, Icon: Clock3 },
-    { id: "progress", label: "Em andamento", count: progressCount, Icon: Play },
-    { id: "done", label: "Concluído", count: completedCount, Icon: CheckCircle2 },
+    { id: "pending", label: "Pendente", count: appointmentCounts.pending, Icon: Clock3 },
+    { id: "progress", label: "Em andamento", count: appointmentCounts.progress, Icon: Play },
+    { id: "done", label: "Concluído", count: appointmentCounts.done, Icon: CheckCircle2 },
   ];
 
-  function completeAppointment(id: number) {
-    setAppointments((current) => current.map((appointment) => appointment.id === id ? { ...appointment, status: "done" } : appointment));
+  async function completeAppointment(id: string) {
+    setApiError("");
+    try {
+      const response = await fetch("/api/admin/overview", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: "concluido" }),
+      });
+      const result = await response.json() as { message?: string };
+      if (!response.ok) throw new Error(result.message || "Não foi possível atualizar o agendamento.");
+      setReloadKey((value) => value + 1);
+    } catch (error) {
+      setApiError(error instanceof Error ? error.message : "Não foi possível atualizar o agendamento.");
+    }
   }
 
   return (
@@ -191,6 +218,7 @@ export default function DashboardPage() {
             </a>
 
             <div className={styles.topActions}>
+              <SignOutButton />
               <div className={styles.menuAnchor}>
                 <button className={styles.notificationButton} type="button" aria-label="Notificações" aria-expanded={notificationsOpen} onClick={() => setNotificationsOpen((open) => !open)}>
                   <Bell />
@@ -200,20 +228,10 @@ export default function DashboardPage() {
               </div>
 
               <div className={styles.menuAnchor}>
-                <button className={styles.branchButton} type="button" aria-expanded={branchMenuOpen} onClick={() => setBranchMenuOpen((open) => !open)}>
+                <div className={styles.branchButton}>
                   <Building2 className={styles.branchIcon} />
-                  <span>{branch}</span>
-                  <ChevronDown className={styles.chevron} />
-                </button>
-                {branchMenuOpen && (
-                  <div className={`${styles.popover} ${styles.branchPopover}`} role="menu" aria-label="Selecionar unidade">
-                    {["Auto CT - Matriz", "Auto CT - Unidade Sul"].map((name) => (
-                      <button key={name} type="button" role="menuitem" onClick={() => { setBranch(name); setBranchMenuOpen(false); }}>
-                        <Building2 />{name}{branch === name && <Check />}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                  <span>{companyName}</span>
+                </div>
               </div>
             </div>
           </header>
@@ -230,12 +248,15 @@ export default function DashboardPage() {
             </div>
           </section>
 
+          {apiError && <p className={styles.dashboardError} role="alert">{apiError}</p>}
+          {isLoading && <p className={styles.dashboardLoading} role="status">Carregando dados do Supabase...</p>}
+
           <section className={styles.metrics} aria-label={`Indicadores de ${period.toLowerCase()}`}>
             <article className={`${styles.metricCard} ${styles.metricFeatured}`}>
               <Coins className={styles.metricIcon} aria-hidden="true" />
               <div className={styles.metricContent}>
                 <span className={styles.metricLabel}>Faturamento</span>
-                <strong>{selectedMetrics.revenue}</strong>
+                <strong>{money.format(selectedMetrics.revenue)}</strong>
                 <small><ArrowUpRight /> <b>{selectedMetrics.trends[0]}</b> {selectedMetrics.comparison}</small>
               </div>
             </article>
@@ -251,7 +272,7 @@ export default function DashboardPage() {
               <CheckCircle2 className={styles.metricIcon} aria-hidden="true" />
               <div className={styles.metricContent}>
                 <span className={styles.metricLabel}>Serviços Concluídos</span>
-                <strong>{completedCount}</strong>
+                <strong>{selectedMetrics.completed}</strong>
                 <small><ArrowUpRight /> <b>{selectedMetrics.trends[2]}</b></small>
               </div>
             </article>
@@ -259,14 +280,14 @@ export default function DashboardPage() {
               <Tag className={styles.metricIcon} aria-hidden="true" />
               <div className={styles.metricContent}>
                 <span className={styles.metricLabel}>Ticket Médio</span>
-                <strong>{selectedMetrics.ticket}</strong>
+                <strong>{money.format(selectedMetrics.ticket)}</strong>
                 <small><ArrowUpRight /> <b>{selectedMetrics.trends[3]}</b></small>
               </div>
             </article>
           </section>
 
           <div className={styles.lowerGrid}>
-            <RevenueChart period={period} />
+            <RevenueChart period={period} revenue={selectedMetrics.revenue} trend={selectedMetrics.trends[0]} series={revenueSeries} />
 
             <section className={`${styles.panel} ${styles.agendaPanel}`} id="agendamentos" aria-labelledby="appointments-title">
               <div className={styles.panelHeading}>
@@ -306,7 +327,7 @@ export default function DashboardPage() {
                       )}
                     </article>
                   ))}
-                  {visibleAppointments.length === 0 && <p className={styles.emptyAppointments}>Nenhum agendamento nesta categoria.</p>}
+                  {visibleAppointments.length === 0 && <p className={styles.emptyAppointments}>{isLoading ? "Carregando agendamentos..." : "Nenhum agendamento nesta categoria."}</p>}
                 </div>
               </div>
             </section>

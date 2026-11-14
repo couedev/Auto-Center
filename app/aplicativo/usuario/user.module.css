@@ -31,6 +31,7 @@
 .appointmentInfo svg { width: 15px; height: 15px; flex: 0 0 auto; stroke-width: 1.75; }
 .status { position: absolute; top: 7px; right: 8px; min-height: 25px; padding: 0 8px; display: inline-flex; align-items: center; gap: 5px; border-radius: 14px; color: #183000; background: linear-gradient(180deg, #c4ff35, #90e900); font-size: 10px; font-weight: 760; }
 .status svg { width: 13px; height: 13px; }
+.statusCancelled { color: #6c2222; background: linear-gradient(180deg, #ffe2e2, #f6c8c8); }
 .emptyAppointments { min-height: 125px; padding: 17px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; border: 1px solid #b5df87; border-radius: 15px; background: #fbfdf9; text-align: center; }
 .emptyAppointments > svg { width: 28px; height: 28px; color: #5b9e0a; }
 .emptyAppointments p { margin: 0; color: #414b3c; font-size: 12px; }

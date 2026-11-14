@@ -1,26 +1,26 @@
 <!doctype html>
 <html lang="pt-BR">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#0d0f0c" />
-    <title>Sem conexão - Lava Jato</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#10130e">
+    <title>Sem conexão | Auto CT</title>
     <style>
       * { box-sizing: border-box; }
-      body { min-height: 100vh; margin: 0; padding: 24px; display: grid; place-items: center; color: #f4f5ef; background: #0d0f0c; font: 16px/1.6 Arial, sans-serif; text-align: center; }
-      main { max-width: 420px; }
-      .mark { display: grid; place-items: center; width: 54px; height: 54px; margin: 0 auto 24px; border-radius: 15px; color: #10120d; background: #c9f31d; font-size: 36px; font-weight: 800; }
-      h1 { margin: 0 0 10px; font-size: 28px; letter-spacing: -1px; }
-      p { margin: 0 0 24px; color: #a0a59b; }
-      button { padding: 12px 18px; border: 0; border-radius: 7px; color: #171a10; background: #c9f31d; font-size: 14px; font-weight: 700; cursor: pointer; }
+      body { min-height: 100vh; margin: 0; display: grid; place-items: center; padding: 24px; color: #f4f5ef; background: #0d0f0c; font-family: Arial, Helvetica, sans-serif; }
+      main { width: min(100%, 390px); padding: 30px 24px; border: 1px solid #30362a; border-radius: 24px; background: linear-gradient(145deg, #191d17, #11130f); text-align: center; }
+      img { width: min(100%, 190px); height: auto; object-fit: contain; }
+      h1 { margin: 16px 0 8px; font-size: 23px; }
+      p { margin: 0; color: #b3b9ad; font-size: 14px; line-height: 1.55; }
+      a { min-height: 46px; margin-top: 22px; display: grid; place-items: center; border-radius: 24px; color: #11170a; background: #a9f000; font-weight: 750; text-decoration: none; }
     </style>
   </head>
   <body>
     <main>
-      <div class="mark" aria-hidden="true">LJ</div>
+      <img src="/assets/Auto%20CT%20transparent%20logo-2.webp" alt="Auto CT Auto Center">
       <h1>Você está sem conexão</h1>
-      <p>Quando a internet voltar, tente acessar a biblioteca novamente.</p>
-      <button type="button" onclick="location.reload()">Tentar novamente</button>
+      <p>Conecte-se à internet para consultar os serviços e seus agendamentos.</p>
+      <a href="/aplicativo">Tentar novamente</a>
     </main>
   </body>
 </html>

@@ -8,21 +8,23 @@ import {
   CircleHelp, Settings, UserRound, X,
 } from "lucide-react";
 import MobileTabBar from "../mobile-tab-bar";
-import { findService } from "../services";
+import { getServiceAppearance } from "../services";
 import styles from "./user.module.css";
 
 type Profile = { name: string; email: string; phone: string };
-type Appointment = { id: string; serviceId: string; serviceName: string; date: string; time: string; status?: string };
+type Appointment = { id: string; serviceName: string; date: string; time: string; vehicle?: string; plate?: string; status?: string };
+type BookingCredential = { id: string; token: string };
+type SupportInfo = { companyName: string; whatsappEnabled: boolean; whatsappNumber: string | null };
 type Sheet = "data" | "preferences" | "help" | null;
 
-const defaultProfile: Profile = { name: "João Silva", email: "joao.silva@email.com", phone: "(11) 98765-4321" };
+const defaultProfile: Profile = { name: "", email: "", phone: "" };
 const weekdays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const shortMonths = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
-function isAppointment(value: unknown): value is Appointment {
+function isCredential(value: unknown): value is BookingCredential {
   if (!value || typeof value !== "object") return false;
   const item = value as Record<string, unknown>;
-  return typeof item.id === "string" && typeof item.serviceId === "string" && typeof item.serviceName === "string" && typeof item.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(item.date) && typeof item.time === "string";
+  return typeof item.id === "string" && typeof item.token === "string";
 }
 
 function formatDate(isoDate: string) {
@@ -30,32 +32,88 @@ function formatDate(isoDate: string) {
   return `${weekdays[date.getUTCDay()]}, ${date.getUTCDate()} de ${shortMonths[date.getUTCMonth()]} de ${date.getUTCFullYear()}`;
 }
 
+function statusLabel(status?: string) {
+  switch (status) {
+    case "pendente": return "Aguardando confirmação";
+    case "em_andamento": return "Em andamento";
+    case "concluido": return "Concluído";
+    case "cancelado": return "Cancelado";
+    default: return "Solicitado";
+  }
+}
+
 export default function UserPage() {
   const [profile, setProfile] = useState(defaultProfile);
   const [draft, setDraft] = useState(defaultProfile);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [appointmentsLoading, setAppointmentsLoading] = useState(true);
+  const [appointmentsError, setAppointmentsError] = useState("");
   const [notifications, setNotifications] = useState(true);
   const [reminders, setReminders] = useState(true);
+  const [supportInfo, setSupportInfo] = useState<SupportInfo>({ companyName: "Auto CT", whatsappEnabled: false, whatsappNumber: null });
   const [sheet, setSheet] = useState<Sheet>(null);
 
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
+    let active = true;
+
+    void fetch("/api/app/catalog", { cache: "no-store" }).then(async (response) => {
+      if (!response.ok) return;
+      const result = await response.json() as { config?: { name?: string; whatsappEnabled?: boolean; whatsappNumber?: string | null } };
+      if (!active || !result.config) return;
+      setSupportInfo({
+        companyName: typeof result.config.name === "string" ? result.config.name : "Auto CT",
+        whatsappEnabled: result.config.whatsappEnabled === true,
+        whatsappNumber: typeof result.config.whatsappNumber === "string" ? result.config.whatsappNumber : null,
+      });
+    }).catch(() => {});
+
+    async function loadUserData() {
+      let credentials: BookingCredential[] = [];
       try {
         const storedProfile = window.localStorage.getItem("auto-ct-profile");
         if (storedProfile) {
           const parsed = { ...defaultProfile, ...JSON.parse(storedProfile) as Partial<Profile> };
-          setProfile(parsed);
-          setDraft(parsed);
+          if (active) {
+            setProfile(parsed);
+            setDraft(parsed);
+          }
         }
-        const storedAppointments = JSON.parse(window.localStorage.getItem("auto-ct-appointments") ?? "[]") as unknown;
-        if (Array.isArray(storedAppointments)) setAppointments(storedAppointments.filter(isAppointment));
-        setNotifications(window.localStorage.getItem("auto-ct-user-notifications") !== "false");
-        setReminders(window.localStorage.getItem("auto-ct-user-reminders") !== "false");
+        const storedCredentials: unknown = JSON.parse(window.localStorage.getItem("auto-ct-booking-tokens") ?? "[]");
+        if (Array.isArray(storedCredentials)) credentials = storedCredentials.filter(isCredential).slice(-20);
+        if (active) {
+          setNotifications(window.localStorage.getItem("auto-ct-user-notifications") !== "false");
+          setReminders(window.localStorage.getItem("auto-ct-user-reminders") !== "false");
+        }
       } catch {
-        // Dados locais indisponíveis: apresenta o perfil demonstrativo.
+        // O perfil e as preferências permanecem opcionais neste dispositivo.
       }
-    });
-    return () => window.cancelAnimationFrame(frame);
+
+      if (!credentials.length) {
+        if (active) {
+          setAppointments([]);
+          setAppointmentsLoading(false);
+        }
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/app/bookings/lookup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ bookings: credentials }),
+        });
+        const result = await response.json() as { appointments?: Appointment[]; message?: string };
+        if (!response.ok) throw new Error(result.message || "Não foi possível carregar seus agendamentos.");
+        if (active) setAppointments(Array.isArray(result.appointments) ? result.appointments : []);
+      } catch (cause) {
+        if (active) setAppointmentsError(cause instanceof Error ? cause.message : "Não foi possível carregar seus agendamentos.");
+      } finally {
+        if (active) setAppointmentsLoading(false);
+      }
+    }
+
+    void loadUserData();
+    return () => { active = false; };
   }, []);
 
   function toggleNotifications() {
@@ -77,7 +135,9 @@ export default function UserPage() {
     setSheet(null);
   }
 
-  const visibleAppointments = appointments.slice(-3).reverse();
+  const visibleAppointments = appointments.slice(0, 3);
+  const supportDigits = supportInfo.whatsappNumber?.replace(/\D/g, "");
+  const supportLink = supportInfo.whatsappEnabled && supportDigits ? `https://wa.me/${supportDigits}` : null;
 
   return (
     <div className={styles.canvas}>
@@ -87,32 +147,40 @@ export default function UserPage() {
 
           <button className={styles.profileCard} type="button" onClick={() => { setDraft(profile); setSheet("data"); }} aria-label="Editar meus dados">
             <span className={styles.avatar}><UserRound aria-hidden="true" /></span>
-            <span className={styles.profileInfo}><strong>{profile.name}</strong><span>{profile.email}</span><span>{profile.phone}</span></span>
+            <span className={styles.profileInfo}>
+              <strong>{profile.name || "Visitante"}</strong>
+              <span>{profile.email || "Toque para adicionar seus dados"}</span>
+              <span>{profile.phone || "Seus dados ficam neste aparelho"}</span>
+            </span>
             <ChevronRight aria-hidden="true" />
           </button>
 
           <section className={styles.appointments} aria-labelledby="appointments-title">
             <h2 id="appointments-title" className={styles.sectionTitle}>Meus agendamentos</h2>
-            {visibleAppointments.length ? (
+            {appointmentsLoading ? (
+              <div className={styles.emptyAppointments} role="status"><CalendarDays aria-hidden="true" /><p>Carregando seus agendamentos...</p></div>
+            ) : appointmentsError ? (
+              <div className={styles.emptyAppointments} role="alert"><CalendarDays aria-hidden="true" /><p>{appointmentsError}</p><Link href="/aplicativo">Voltar ao início</Link></div>
+            ) : visibleAppointments.length ? (
               <div className={styles.appointmentList}>
                 {visibleAppointments.map((appointment) => {
-                  const service = findService(appointment.serviceId);
+                  const appearance = getServiceAppearance(appointment.serviceName);
                   return (
                     <article className={styles.appointmentCard} key={appointment.id}>
-                      <div className={`${styles.appointmentThumb} ${styles[service.tone]}`} aria-hidden="true"><service.Icon strokeWidth={1.6} /></div>
+                      <div className={`${styles.appointmentThumb} ${styles[appearance.tone]}`} aria-hidden="true"><appearance.Icon strokeWidth={1.6} /></div>
                       <div className={styles.appointmentInfo}>
                         <strong>{appointment.serviceName}</strong>
-                        <span><CarFront aria-hidden="true" />Auto CT - Matriz</span>
+                        <span><CarFront aria-hidden="true" />{appointment.vehicle || "Veículo não informado"}{appointment.plate ? ` · ${appointment.plate}` : ""}</span>
                         <span><CalendarDays aria-hidden="true" />{formatDate(appointment.date)}</span>
                         <span><Clock3 aria-hidden="true" />{appointment.time}</span>
                       </div>
-                      <span className={styles.status}><CheckCircle2 aria-hidden="true" />{appointment.status || "Confirmado"}</span>
+                      <span className={`${styles.status} ${appointment.status === "cancelado" ? styles.statusCancelled : ""}`}><CheckCircle2 aria-hidden="true" />{statusLabel(appointment.status)}</span>
                     </article>
                   );
                 })}
               </div>
             ) : (
-              <div className={styles.emptyAppointments}><CalendarDays aria-hidden="true" /><p>Você ainda não tem agendamentos.</p><Link href="/aplicativo">Agendar um serviço</Link></div>
+              <div className={styles.emptyAppointments}><CalendarDays aria-hidden="true" /><p>Você ainda não tem agendamentos neste aparelho.</p><Link href="/aplicativo">Agendar um serviço</Link></div>
             )}
           </section>
 
@@ -131,9 +199,9 @@ export default function UserPage() {
       </main>
 
       {sheet && <div className={styles.sheetBackdrop} onMouseDown={(event) => { if (event.target === event.currentTarget) setSheet(null); }}><section className={styles.sheet} role="dialog" aria-modal="true" aria-labelledby="sheet-title"><div className={styles.sheetHeading}><h2 id="sheet-title">{sheet === "data" ? "Meus dados" : sheet === "preferences" ? "Preferências" : "Ajuda e suporte"}</h2><button type="button" aria-label="Fechar" onClick={() => setSheet(null)}><X /></button></div>
-        {sheet === "data" && <form className={styles.profileForm} onSubmit={saveProfile}><label>Nome<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required /></label><label>E-mail<input type="email" value={draft.email} onChange={(event) => setDraft({ ...draft, email: event.target.value })} required /></label><label>Telefone<input type="tel" value={draft.phone} onChange={(event) => setDraft({ ...draft, phone: event.target.value })} required /></label><button type="submit">Salvar meus dados</button></form>}
+        {sheet === "data" && <form className={styles.profileForm} onSubmit={saveProfile}><label>Nome<input autoComplete="name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required /></label><label>E-mail<input type="email" autoComplete="email" value={draft.email} onChange={(event) => setDraft({ ...draft, email: event.target.value })} required /></label><label>Telefone<input type="tel" autoComplete="tel" value={draft.phone} onChange={(event) => setDraft({ ...draft, phone: event.target.value })} required /></label><button type="submit">Salvar meus dados</button></form>}
         {sheet === "preferences" && <div className={styles.sheetContent}><div className={styles.preferenceOption}><span>Receber lembretes de agendamento</span><button type="button" className={`${styles.switch} ${reminders ? styles.switchOn : ""}`} role="switch" aria-checked={reminders} aria-label="Receber lembretes de agendamento" onClick={toggleReminders}><span /></button></div><p>Suas preferências ficam salvas neste dispositivo.</p></div>}
-        {sheet === "help" && <div className={styles.sheetContent}><p>Precisa de ajuda com um agendamento? Entre em contato com a equipe da sua unidade Auto CT.</p><Link href="/aplicativo/agendamento">Ver agendamento</Link></div>}
+        {sheet === "help" && <div className={styles.sheetContent}><p>Precisa de ajuda com um agendamento? Entre em contato com a equipe da {supportInfo.companyName}.</p>{supportLink ? <a href={supportLink} target="_blank" rel="noreferrer">Falar pelo WhatsApp</a> : <Link href="/aplicativo/agendamento">Ver agendamento</Link>}</div>}
       </section></div>}
     </div>
   );

@@ -5,23 +5,25 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import {
-  Bell, Brush, Building2, CalendarDays, Check, CheckCircle2, ChevronDown,
-  Clock3, House, Mail, MapPin, MessageCircle, Package, Phone, Save,
+  Bell, Brush, Building2, CalendarDays, Check, CheckCircle2,
+  Clock3, House, MessageCircle, Package, Phone, Save,
   Settings, SlidersHorizontal, Store,
 } from "lucide-react";
 import chrome from "../dashboard.module.css";
 import styles from "./settings.module.css";
+import SignOutButton from "../sign-out-button";
 
 type Theme = "dark" | "light";
 type AutoCenterSettings = {
   company: string;
   phone: string;
-  email: string;
-  address: string;
+  logoUrl: string;
   weekdayStart: string;
   weekdayEnd: string;
   saturdayStart: string;
   saturdayEnd: string;
+  sundayStart: string;
+  sundayEnd: string;
   notifications: boolean;
   autoConfirm: boolean;
   whatsapp: boolean;
@@ -31,14 +33,15 @@ type AutoCenterSettings = {
 
 const STORAGE_KEY = "auto-ct-settings";
 const defaultSettings: AutoCenterSettings = {
-  company: "Auto CT – Auto Center",
-  phone: "(11) 4235-6800",
-  email: "contato@autoct.com.br",
-  address: "Av. Paulista, 1578 – Bela Vista, São Paulo – SP",
+  company: "Auto CT",
+  phone: "",
+  logoUrl: "",
   weekdayStart: "08:00",
   weekdayEnd: "18:00",
   saturdayStart: "08:00",
   saturdayEnd: "12:00",
+  sundayStart: "",
+  sundayEnd: "",
   notifications: true,
   autoConfirm: false,
   whatsapp: true,
@@ -64,20 +67,70 @@ function ThemePreview({ theme, selected }: { theme: Theme; selected: boolean }) 
 export default function SettingsPage() {
   const [values, setValues] = useState(defaultSettings);
   const [savedMessage, setSavedMessage] = useState("");
-  const [branch, setBranch] = useState("Auto CT - Matriz");
-  const [branchMenuOpen, setBranchMenuOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      try {
-        const stored = window.localStorage.getItem(STORAGE_KEY);
-        if (stored) setValues({ ...defaultSettings, ...JSON.parse(stored) as Partial<AutoCenterSettings> });
-      } catch {
-        // Mantém os valores iniciais quando o armazenamento está indisponível.
+    let active = true;
+
+    try {
+      const stored = window.localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const preferences = JSON.parse(stored) as Partial<AutoCenterSettings>;
+        setValues((current) => ({
+          ...current,
+          notifications: preferences.notifications ?? current.notifications,
+          autoConfirm: preferences.autoConfirm ?? current.autoConfirm,
+          theme: preferences.theme ?? current.theme,
+          accent: preferences.accent ?? current.accent,
+        }));
       }
-    });
-    return () => window.cancelAnimationFrame(frame);
+    } catch {
+      // Mantém as preferências iniciais quando o armazenamento local está indisponível.
+    }
+
+    async function loadSettings() {
+      try {
+        const response = await fetch("/api/admin/settings", { cache: "no-store" });
+        const result = await response.json() as {
+          settings?: {
+            nome_empresa: string;
+            logo_url: string | null;
+            whatsapp_numero: string | null;
+            whatsapp_ativo: boolean;
+            horarios_funcionamento: Record<string, { abre: string; fecha: string }>;
+          };
+          message?: string;
+        };
+        if (!response.ok || !result.settings) throw new Error(result.message || "Não foi possível carregar as configurações.");
+        if (!active) return;
+        const settings = result.settings;
+        const hours = settings.horarios_funcionamento ?? {};
+        setValues((current) => ({
+          ...current,
+          company: settings.nome_empresa,
+          phone: settings.whatsapp_numero ?? "",
+          logoUrl: settings.logo_url ?? "",
+          weekdayStart: hours["1"]?.abre ?? "",
+          weekdayEnd: hours["5"]?.fecha ?? hours["1"]?.fecha ?? "",
+          saturdayStart: hours["6"]?.abre ?? "",
+          saturdayEnd: hours["6"]?.fecha ?? "",
+          sundayStart: hours["7"]?.abre ?? "",
+          sundayEnd: hours["7"]?.fecha ?? "",
+          whatsapp: settings.whatsapp_ativo,
+        }));
+        setSettingsLoaded(true);
+      } catch (error) {
+        if (active) setSavedMessage(error instanceof Error ? error.message : "Não foi possível carregar as configurações.");
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    }
+
+    void loadSettings();
+    return () => { active = false; };
   }, []);
 
   function update<K extends keyof AutoCenterSettings>(key: K, value: AutoCenterSettings[K]) {
@@ -85,13 +138,54 @@ export default function SettingsPage() {
     setSavedMessage("");
   }
 
-  function saveSettings(event: FormEvent<HTMLFormElement>) {
+  async function saveSettings(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (Boolean(values.saturdayStart) !== Boolean(values.saturdayEnd) || Boolean(values.sundayStart) !== Boolean(values.sundayEnd)) {
+      setSavedMessage("Preencha início e fim do horário para sábado e domingo, ou deixe os dois vazios.");
+      return;
+    }
+
+    setIsSaving(true);
+    setSavedMessage("");
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(values));
-      setSavedMessage("Alterações salvas neste navegador.");
-    } catch {
-      setSavedMessage("Não foi possível salvar neste navegador.");
+      const weekday = { abre: values.weekdayStart, fecha: values.weekdayEnd };
+      const response = await fetch("/api/admin/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company: values.company,
+          whatsappNumber: values.phone,
+          logoUrl: values.logoUrl,
+          whatsappActive: values.whatsapp,
+          hours: {
+            "1": weekday,
+            "2": weekday,
+            "3": weekday,
+            "4": weekday,
+            "5": weekday,
+            "6": values.saturdayStart ? { abre: values.saturdayStart, fecha: values.saturdayEnd } : null,
+            "7": values.sundayStart ? { abre: values.sundayStart, fecha: values.sundayEnd } : null,
+          },
+        }),
+      });
+      const result = await response.json() as { message?: string };
+      if (!response.ok) throw new Error(result.message || "Não foi possível salvar as configurações.");
+
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          notifications: values.notifications,
+          autoConfirm: values.autoConfirm,
+          theme: values.theme,
+          accent: values.accent,
+        }));
+      } catch {
+        // Preferências visuais continuam funcionando nesta sessão se o navegador bloquear armazenamento.
+      }
+      setSavedMessage("Dados da empresa salvos no Supabase. Aparência e preferências ficam neste navegador.");
+    } catch (error) {
+      setSavedMessage(error instanceof Error ? error.message : "Não foi possível salvar as configurações.");
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -116,13 +210,13 @@ export default function SettingsPage() {
               <Image src="/assets/Auto%20CT%20transparent%20logo-2.webp" alt="Auto CT Auto Center" width={420} height={210} priority className={chrome.logo} style={{ width: "100%", height: "auto" }} />
             </Link>
             <div className={chrome.topActions}>
+              <SignOutButton />
               <div className={chrome.menuAnchor}>
                 <button className={chrome.notificationButton} type="button" aria-label="Notificações" aria-expanded={notificationsOpen} onClick={() => setNotificationsOpen((current) => !current)}><Bell /><span className={chrome.notificationDot} /></button>
                 {notificationsOpen && <div className={`${chrome.popover} ${chrome.notificationPopover}`} role="status"><strong>Tudo em dia</strong><span>Você não tem novas notificações.</span></div>}
               </div>
               <div className={chrome.menuAnchor}>
-                <button className={chrome.branchButton} type="button" aria-expanded={branchMenuOpen} onClick={() => setBranchMenuOpen((current) => !current)}><Building2 className={chrome.branchIcon} /><span>{branch}</span><ChevronDown className={chrome.chevron} /></button>
-                {branchMenuOpen && <div className={`${chrome.popover} ${chrome.branchPopover}`} role="menu" aria-label="Selecionar unidade">{["Auto CT - Matriz", "Auto CT - Unidade Sul"].map((name) => <button key={name} type="button" role="menuitem" onClick={() => { setBranch(name); setBranchMenuOpen(false); }}><Building2 />{name}{branch === name && <Check />}</button>)}</div>}
+                <div className={chrome.branchButton}><Building2 className={chrome.branchIcon} /><span>{values.company}</span></div>
               </div>
             </div>
           </header>
@@ -135,17 +229,17 @@ export default function SettingsPage() {
                 <div className={styles.cardHeading}><Store aria-hidden="true" /><div><h2 id="company-title">Informações da empresa</h2><p>Dados principais do seu auto center</p></div></div>
                 <div className={styles.companyFields}>
                   <label><span>Nome da empresa</span><div className={styles.field}><input value={values.company} onChange={(event) => update("company", event.target.value)} required /></div></label>
-                  <label><span>Telefone</span><div className={styles.field}><Phone aria-hidden="true" /><input type="tel" value={values.phone} onChange={(event) => update("phone", event.target.value)} required /></div></label>
-                  <label><span>E-mail</span><div className={styles.field}><Mail aria-hidden="true" /><input type="email" value={values.email} onChange={(event) => update("email", event.target.value)} required /></div></label>
-                  <label><span>Endereço</span><div className={styles.field}><MapPin aria-hidden="true" /><input value={values.address} onChange={(event) => update("address", event.target.value)} required /></div></label>
+                  <label><span>WhatsApp</span><div className={styles.field}><Phone aria-hidden="true" /><input type="tel" value={values.phone} onChange={(event) => update("phone", event.target.value)} placeholder="Número com DDD" /></div></label>
+                  <label><span>URL do logo</span><div className={styles.field}><input type="url" value={values.logoUrl} onChange={(event) => update("logoUrl", event.target.value)} placeholder="https://..." /></div></label>
                 </div>
               </section>
 
               <section className={styles.card} aria-labelledby="hours-title">
                 <div className={styles.cardHeading}><CalendarDays aria-hidden="true" /><div><h2 id="hours-title">Horário de funcionamento</h2><p>Defina os dias e horários de atendimento</p></div></div>
                 <div className={styles.hoursList}>
-                  <div className={styles.hoursRow}><div><CalendarDays aria-hidden="true" /><strong>Segunda a Sexta</strong></div><div className={styles.timeGroup}><Clock3 aria-hidden="true" /><label><span className={styles.srOnly}>Início de segunda a sexta</span><input type="time" value={values.weekdayStart} onChange={(event) => update("weekdayStart", event.target.value)} /></label><span>–</span><label><span className={styles.srOnly}>Fim de segunda a sexta</span><input type="time" value={values.weekdayEnd} onChange={(event) => update("weekdayEnd", event.target.value)} /></label></div></div>
+                  <div className={styles.hoursRow}><div><CalendarDays aria-hidden="true" /><strong>Segunda a Sexta</strong></div><div className={styles.timeGroup}><Clock3 aria-hidden="true" /><label><span className={styles.srOnly}>Início de segunda a sexta</span><input type="time" required value={values.weekdayStart} onChange={(event) => update("weekdayStart", event.target.value)} /></label><span>–</span><label><span className={styles.srOnly}>Fim de segunda a sexta</span><input type="time" required value={values.weekdayEnd} onChange={(event) => update("weekdayEnd", event.target.value)} /></label></div></div>
                   <div className={styles.hoursRow}><div><CalendarDays aria-hidden="true" /><strong>Sábado</strong></div><div className={styles.timeGroup}><Clock3 aria-hidden="true" /><label><span className={styles.srOnly}>Início do sábado</span><input type="time" value={values.saturdayStart} onChange={(event) => update("saturdayStart", event.target.value)} /></label><span>–</span><label><span className={styles.srOnly}>Fim do sábado</span><input type="time" value={values.saturdayEnd} onChange={(event) => update("saturdayEnd", event.target.value)} /></label></div></div>
+                  <div className={styles.hoursRow}><div><CalendarDays aria-hidden="true" /><strong>Domingo</strong></div><div className={styles.timeGroup}><Clock3 aria-hidden="true" /><label><span className={styles.srOnly}>Início do domingo</span><input type="time" value={values.sundayStart} onChange={(event) => update("sundayStart", event.target.value)} /></label><span>–</span><label><span className={styles.srOnly}>Fim do domingo</span><input type="time" value={values.sundayEnd} onChange={(event) => update("sundayEnd", event.target.value)} /></label></div></div>
                 </div>
               </section>
             </div>
@@ -156,7 +250,7 @@ export default function SettingsPage() {
                 <div className={styles.preferenceList}>
                   <div className={styles.preferenceRow}><Bell aria-hidden="true" /><div><strong>Receber notificações</strong><span>Alertas de agendamentos, serviços e atualizações</span></div><button type="button" className={`${styles.switch} ${values.notifications ? styles.switchOn : ""}`} role="switch" aria-checked={values.notifications} aria-label="Receber notificações" onClick={() => update("notifications", !values.notifications)}><span /></button></div>
                   <div className={styles.preferenceRow}><CheckCircle2 aria-hidden="true" /><div><strong>Confirmação automática</strong><span>Confirmar agendamentos automaticamente</span></div><button type="button" className={`${styles.switch} ${values.autoConfirm ? styles.switchOn : ""}`} role="switch" aria-checked={values.autoConfirm} aria-label="Confirmação automática" onClick={() => update("autoConfirm", !values.autoConfirm)}><span /></button></div>
-                  <div className={styles.preferenceRow}><MessageCircle aria-hidden="true" /><div><strong>Lembrar clientes por WhatsApp</strong><span>Enviar lembretes automáticos de agendamentos</span></div><button type="button" className={`${styles.switch} ${values.whatsapp ? styles.switchOn : ""}`} role="switch" aria-checked={values.whatsapp} aria-label="Lembrar clientes por WhatsApp" onClick={() => update("whatsapp", !values.whatsapp)}><span /></button></div>
+                  <div className={styles.preferenceRow}><MessageCircle aria-hidden="true" /><div><strong>WhatsApp da empresa ativo</strong><span>Exibir o canal para contato nos fluxos públicos</span></div><button type="button" className={`${styles.switch} ${values.whatsapp ? styles.switchOn : ""}`} role="switch" aria-checked={values.whatsapp} aria-label="Ativar WhatsApp da empresa" onClick={() => update("whatsapp", !values.whatsapp)}><span /></button></div>
                 </div>
               </section>
 
@@ -172,7 +266,7 @@ export default function SettingsPage() {
               </section>
             </div>
 
-            <div className={styles.saveRow}><p role="status">{savedMessage}</p><button className={styles.saveButton} type="submit"><Save aria-hidden="true" />Salvar alterações</button></div>
+            <div className={styles.saveRow}><p role="status">{isLoading ? "Carregando configurações..." : savedMessage}</p><button className={styles.saveButton} type="submit" disabled={isLoading || !settingsLoaded || isSaving}><Save aria-hidden="true" />{isSaving ? "Salvando..." : "Salvar alterações"}</button></div>
           </form>
         </div>
       </main>

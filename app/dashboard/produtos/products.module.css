@@ -61,7 +61,7 @@
 .metric small b { color: #a8ee00; font-size: 12px; font-weight: 620; }
 .metric .dangerTrend svg, .metric .dangerTrend b { color: #ff4d4d; }
 
-.toolbar { margin: 28px 0 19px; display: grid; grid-template-columns: auto minmax(260px, 1fr) auto; align-items: center; gap: 26px; }
+.toolbar { margin: 28px 0 19px; display: grid; grid-template-columns: auto minmax(260px, 1fr); align-items: center; gap: 26px; }
 .statusTabs { height: 44px; display: flex; align-items: center; gap: 8px; }
 .statusTabs button {
   min-width: 112px;
@@ -103,12 +103,11 @@
 .tableScroll { overflow-x: auto; scrollbar-color: #657438 #151914; }
 .tableCard table { width: 100%; min-width: 975px; border-collapse: collapse; table-layout: fixed; }
 .tableCard th { height: 45px; padding: 0 15px; border-bottom: 1px solid rgba(217, 224, 215, .31); color: #f1f3ef; text-align: left; text-transform: uppercase; font-size: 11px; font-weight: 700; }
-.tableCard th:first-child { width: 28%; padding-left: 108px; }
-.tableCard th:nth-child(2) { width: 18%; }
-.tableCard th:nth-child(3) { width: 12%; }
-.tableCard th:nth-child(4) { width: 12%; }
-.tableCard th:nth-child(5) { width: 16%; }
-.tableCard th:nth-child(6) { width: 14%; text-align: center; }
+.tableCard th:first-child { width: 44%; padding-left: 108px; }
+.tableCard th:nth-child(2) { width: 14%; }
+.tableCard th:nth-child(3) { width: 14%; }
+.tableCard th:nth-child(4) { width: 16%; }
+.tableCard th:nth-child(5) { width: 12%; text-align: center; }
 .tableCard th button { padding: 0; display: inline-flex; align-items: center; gap: 8px; border: 0; color: inherit; background: transparent; text-transform: inherit; font-size: inherit; font-weight: inherit; cursor: pointer; }
 .tableCard th button:hover { color: #a9ee00; }
 .tableCard th svg { width: 12px; height: 12px; }
@@ -120,7 +119,7 @@
 .productCell { display: flex; align-items: center; gap: 22px; }
 .productCell > div { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .productCell strong { overflow: hidden; text-overflow: ellipsis; font-size: 15px; font-weight: 650; }
-.productCell span { color: #bdc2b9; font-size: 12px; }
+.productCell span { overflow: hidden; color: #bdc2b9; font-size: 12px; text-overflow: ellipsis; }
 .thumbnail { width: 67px; height: 51px; flex: 0 0 auto; display: grid; place-items: center; overflow: hidden; border: 1px solid rgba(222, 229, 219, .31); border-radius: 11px; background: radial-gradient(circle at 45% 32%, #3a3d3b, #151716 70%); box-shadow: inset 0 1px rgba(255, 255, 255, .06); }
 .thumbnail svg { width: 48px; height: 48px; filter: drop-shadow(1px 3px 2px rgba(0, 0, 0, .55)); }
 .categoryPill { min-width: 150px; max-width: 100%; min-height: 36px; padding: 0 12px; display: inline-flex; align-items: center; gap: 10px; border: 1px solid rgba(225, 232, 222, .34); border-radius: 12px; color: #f2f4ef; background: linear-gradient(145deg, rgba(42, 44, 43, .8), rgba(19, 21, 20, .85)); font-size: 12px; }
@@ -138,6 +137,8 @@
 .actions .deleteButton { border-color: rgba(255, 93, 90, .7); color: #ff4044; }
 .actions .deleteButton:hover { background: #351719; border-color: #ff4248; color: #ff6666; }
 .emptyState { padding: 30px; color: #aeb5a7; text-align: center; font-size: 14px; }
+.apiError, .loadingState { margin: 0 0 13px; padding: 11px 14px; border: 1px solid rgba(208, 225, 197, .23); border-radius: 10px; color: #e7ebdf; background: rgba(20, 24, 17, .8); font-size: 13px; }
+.apiError { border-color: rgba(255, 111, 111, .4); color: #ffc2c2; }
 
 .modalOverlay { position: fixed; inset: 0; z-index: 20; padding: 18px; display: grid; place-items: center; background: rgba(0, 0, 0, .77); backdrop-filter: blur(7px); }
 .modal, .confirmModal { width: min(100%, 470px); padding: 24px; border: 1px solid #546944; border-radius: 20px; color: #f6f7f3; background: linear-gradient(150deg, #20251c, #090b09 70%); box-shadow: 0 20px 70px rgba(0, 0, 0, .7), 0 0 24px rgba(150, 227, 0, .1); }
@@ -183,10 +184,9 @@
   .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .metric { min-height: 116px; }
   .metric strong { font-size: 28px; }
-  .toolbar { grid-template-columns: 1fr auto; }
+  .toolbar { grid-template-columns: 1fr; }
   .statusTabs { grid-column: 1 / -1; }
   .searchBox { grid-column: 1; }
-  .filterAnchor { grid-column: 2; }
 }
 
 @media (max-width: 680px) {

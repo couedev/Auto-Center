@@ -2,24 +2,22 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import {
-  ArrowDownUp, ArrowUpRight, Bell, Boxes, Building2, CarFront, Check,
-  CheckCircle2, ChevronDown, CircleAlert, Coins, Disc3, Droplets, Eye,
-  Filter, House, Package, Pencil, Plus, Search, Settings, Sparkles,
-  Trash2, TriangleAlert, Wrench, X,
+  ArrowDownUp, Bell, Boxes, Building2, CheckCircle2,
+  CircleAlert, Coins, Eye, House, Package, Pencil, Plus, Search, Settings,
+  Trash2, TriangleAlert, X,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import chrome from "../dashboard.module.css";
 import styles from "./products.module.css";
+import SignOutButton from "../sign-out-button";
 
 type ProductArt = "oil" | "shampoo" | "wax" | "tire" | "filter" | "spray";
 type Product = {
   id: string;
   name: string;
-  code: string;
-  category: string;
+  description: string;
   stock: number;
   price: number;
   art: ProductArt;
@@ -27,29 +25,30 @@ type Product = {
 type StatusFilter = "all" | "stock" | "low";
 type SortKey = "stock" | "price" | null;
 
-const initialProducts: Product[] = [
-  { id: "ol-5w30", name: "Óleo 5W30", code: "OL-5W30", category: "Lubrificantes", stock: 32, price: 49.9, art: "oil" },
-  { id: "sh-001", name: "Shampoo Automotivo", code: "SH-001", category: "Lavagem", stock: 118, price: 24.9, art: "shampoo" },
-  { id: "ce-001", name: "Cera Líquida", code: "CE-001", category: "Polimento", stock: 27, price: 39.9, art: "wax" },
-  { id: "pp-001", name: "Pneu Pretinho", code: "PP-001", category: "Estética", stock: 4, price: 19.9, art: "tire" },
-  { id: "fo-001", name: "Filtro de Óleo", code: "FO-001", category: "Troca de Peças", stock: 56, price: 34.9, art: "filter" },
-  { id: "dg-001", name: "Desengraxante", code: "DG-001", category: "Limpeza", stock: 18, price: 28.9, art: "spray" },
-];
-
-const categories = ["Lubrificantes", "Lavagem", "Polimento", "Estética", "Troca de Peças", "Limpeza"];
-const categoryIcons: Record<string, LucideIcon> = {
-  Lubrificantes: CarFront,
-  Lavagem: Droplets,
-  Polimento: Sparkles,
-  Estética: Disc3,
-  "Troca de Peças": Wrench,
-  Limpeza: Droplets,
-};
-const categoryArt: Record<string, ProductArt> = {
-  Lubrificantes: "oil", Lavagem: "shampoo", Polimento: "wax", Estética: "tire", "Troca de Peças": "filter", Limpeza: "spray",
-};
-const blankProduct: Product = { id: "", name: "", code: "", category: "Lavagem", stock: 0, price: 0, art: "shampoo" };
+const blankProduct: Product = { id: "", name: "", description: "", stock: 0, price: 0, art: "shampoo" };
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+
+function productArt(name: string, description: string): ProductArt {
+  const text = `${name} ${description}`.toLocaleLowerCase("pt-BR");
+  if (/óleo|oleo|lubrificante/.test(text)) return "oil";
+  if (/cera|polimento/.test(text)) return "wax";
+  if (/pneu/.test(text)) return "tire";
+  if (/filtro/.test(text)) return "filter";
+  if (/desengraxante|spray/.test(text)) return "spray";
+  return "shampoo";
+}
+
+function fromRecord(record: { id: string; nome: string; descricao: string | null; estoque: number; preco: number | string }): Product {
+  const description = record.descricao ?? "";
+  return {
+    id: record.id,
+    name: record.nome,
+    description,
+    stock: Number(record.estoque),
+    price: Number(record.preco),
+    art: productArt(record.nome, description),
+  };
+}
 
 function ProductThumbnail({ art }: { art: ProductArt }) {
   const common = { stroke: "#c8d0bd", strokeWidth: 1.2, strokeLinejoin: "round" as const };
@@ -99,43 +98,101 @@ function ProductThumbnail({ art }: { art: ProductArt }) {
 }
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState(initialProducts);
+  const [products, setProducts] = useState<Product[]>([]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [categoryFilter, setCategoryFilter] = useState("Todas as categorias");
   const [search, setSearch] = useState("");
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>(null);
   const [sortAscending, setSortAscending] = useState(true);
   const [modal, setModal] = useState<"new" | "view" | "edit" | null>(null);
   const [draft, setDraft] = useState<Product>(blankProduct);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
-  const [branch, setBranch] = useState("Auto CT - Matriz");
-  const [branchMenuOpen, setBranchMenuOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [apiError, setApiError] = useState("");
+  const [companyName, setCompanyName] = useState("Auto CT");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
-  const initialUnits = initialProducts.reduce((sum, product) => sum + product.stock, 0);
   const currentUnits = products.reduce((sum, product) => sum + product.stock, 0);
-  const initialValue = initialProducts.reduce((sum, product) => sum + product.stock * product.price, 0);
   const currentValue = products.reduce((sum, product) => sum + product.stock * product.price, 0);
-  const totalProducts = 156 + products.length - initialProducts.length;
-  const totalUnits = 4872 + currentUnits - initialUnits;
-  const lowStockCount = 5 + products.filter((product) => product.stock <= 5).length - 1;
-  const stockValue = 48730.9 + currentValue - initialValue;
+  const lowStockCount = products.filter((product) => product.stock <= 5).length;
   const normalizedSearch = search.trim().toLocaleLowerCase("pt-BR");
   const filteredProducts = products.filter((product) => {
     const matchesStatus = statusFilter === "all" || (statusFilter === "low" ? product.stock <= 5 : product.stock > 5);
-    const matchesCategory = categoryFilter === "Todas as categorias" || product.category === categoryFilter;
-    const matchesSearch = !normalizedSearch || `${product.name} ${product.category} ${product.code}`.toLocaleLowerCase("pt-BR").includes(normalizedSearch);
-    return matchesStatus && matchesCategory && matchesSearch;
+    const matchesSearch = !normalizedSearch || `${product.name} ${product.description}`.toLocaleLowerCase("pt-BR").includes(normalizedSearch);
+    return matchesStatus && matchesSearch;
   }).sort((a, b) => sortKey ? (a[sortKey] - b[sortKey]) * (sortAscending ? 1 : -1) : 0);
+
+  useEffect(() => {
+    let active = true;
+    async function loadProducts() {
+      try {
+        const response = await fetch("/api/admin/catalog", { cache: "no-store" });
+        const result = await response.json() as { products?: Array<{ id: string; nome: string; descricao: string | null; estoque: number; preco: number | string }>; companyName?: string; message?: string };
+        if (!response.ok) throw new Error(result.message || "Não foi possível carregar os produtos.");
+        if (active) {
+          setProducts((result.products ?? []).map(fromRecord));
+          setCompanyName(result.companyName || "Auto CT");
+        }
+      } catch (error) {
+        if (active) setApiError(error instanceof Error ? error.message : "Não foi possível carregar os produtos.");
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    }
+    void loadProducts();
+    return () => { active = false; };
+  }, []);
 
   function openNew() { setDraft({ ...blankProduct }); setModal("new"); }
   function openProduct(product: Product, mode: "view" | "edit") { setDraft({ ...product }); setModal(mode); }
-  function saveProduct(event: FormEvent<HTMLFormElement>) {
+  async function saveProduct(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const saved = { ...draft, id: modal === "new" ? `${Date.now()}` : draft.id, art: categoryArt[draft.category] ?? "shampoo" };
-    setProducts((current) => modal === "new" ? [...current, saved] : current.map((product) => product.id === saved.id ? saved : product));
-    setModal(null);
+    setIsSaving(true);
+    setApiError("");
+    const isNew = modal === "new";
+    try {
+      const response = await fetch("/api/admin/catalog", {
+        method: isNew ? "POST" : "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...(isNew ? {} : { id: draft.id }),
+          name: draft.name,
+          description: draft.description,
+          stock: draft.stock,
+          price: draft.price,
+        }),
+      });
+      const result = await response.json() as { product?: { id: string; nome: string; descricao: string | null; estoque: number; preco: number | string }; message?: string };
+      if (!response.ok || !result.product) throw new Error(result.message || "Não foi possível salvar o produto.");
+      const saved = fromRecord(result.product);
+      setProducts((current) => isNew ? [saved, ...current] : current.map((product) => product.id === saved.id ? saved : product));
+      setModal(null);
+    } catch (error) {
+      setApiError(error instanceof Error ? error.message : "Não foi possível salvar o produto.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function deactivateProduct() {
+    if (!deleteTarget) return;
+    setIsSaving(true);
+    setApiError("");
+    try {
+      const response = await fetch("/api/admin/catalog", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: deleteTarget.id }),
+      });
+      const result = await response.json() as { message?: string };
+      if (!response.ok) throw new Error(result.message || "Não foi possível desativar o produto.");
+      setProducts((current) => current.filter((product) => product.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch (error) {
+      setApiError(error instanceof Error ? error.message : "Não foi possível desativar o produto.");
+    } finally {
+      setIsSaving(false);
+    }
   }
   function changeSort(key: Exclude<SortKey, null>) {
     if (sortKey === key) setSortAscending((value) => !value);
@@ -161,13 +218,13 @@ export default function ProductsPage() {
               <Image src="/assets/Auto%20CT%20transparent%20logo-2.webp" alt="Auto CT Auto Center" width={420} height={210} priority className={chrome.logo} style={{ width: "100%", height: "auto" }} />
             </Link>
             <div className={chrome.topActions}>
+              <SignOutButton />
               <div className={chrome.menuAnchor}>
                 <button className={chrome.notificationButton} type="button" aria-label="Notificações" aria-expanded={notificationsOpen} onClick={() => setNotificationsOpen((value) => !value)}><Bell /><span className={chrome.notificationDot} /></button>
                 {notificationsOpen && <div className={`${chrome.popover} ${chrome.notificationPopover}`} role="status"><strong>Tudo em dia</strong><span>Você não tem novas notificações.</span></div>}
               </div>
               <div className={chrome.menuAnchor}>
-                <button className={chrome.branchButton} type="button" aria-expanded={branchMenuOpen} onClick={() => setBranchMenuOpen((value) => !value)}><Building2 className={chrome.branchIcon} /><span>{branch}</span><ChevronDown className={chrome.chevron} /></button>
-                {branchMenuOpen && <div className={`${chrome.popover} ${chrome.branchPopover}`} role="menu" aria-label="Selecionar unidade">{["Auto CT - Matriz", "Auto CT - Unidade Sul"].map((name) => <button key={name} type="button" role="menuitem" onClick={() => { setBranch(name); setBranchMenuOpen(false); }}><Building2 />{name}{branch === name && <Check />}</button>)}</div>}
+                <div className={chrome.branchButton}><Building2 className={chrome.branchIcon} /><span>{companyName}</span></div>
               </div>
             </div>
           </header>
@@ -178,35 +235,30 @@ export default function ProductsPage() {
           </div>
 
           <section className={styles.metrics} aria-label="Resumo do estoque">
-            <article className={`${styles.metric} ${styles.featured}`}><Package aria-hidden="true" /><div><span>Total de Produtos</span><strong>{totalProducts}</strong><small><ArrowUpRight /> <b>+7,6%</b> em relação ao mês anterior</small></div></article>
-            <article className={styles.metric}><Boxes aria-hidden="true" /><div><span>Itens em Estoque</span><strong>{new Intl.NumberFormat("pt-BR").format(totalUnits)}</strong><small><ArrowUpRight /> <b>+12,3%</b></small></div></article>
-            <article className={styles.metric}><TriangleAlert aria-hidden="true" /><div><span>Baixo Estoque</span><strong>{lowStockCount}</strong><small className={styles.dangerTrend}><ArrowUpRight /> <b>+66,7%</b></small></div></article>
-            <article className={styles.metric}><Coins aria-hidden="true" /><div><span>Valor do Estoque</span><strong>{money.format(stockValue)}</strong><small><ArrowUpRight /> <b>+10,9%</b></small></div></article>
+            <article className={`${styles.metric} ${styles.featured}`}><Package aria-hidden="true" /><div><span>Produtos ativos</span><strong>{products.length}</strong><small>cadastrados no catálogo</small></div></article>
+            <article className={styles.metric}><Boxes aria-hidden="true" /><div><span>Itens em Estoque</span><strong>{new Intl.NumberFormat("pt-BR").format(currentUnits)}</strong><small>unidades disponíveis</small></div></article>
+            <article className={styles.metric}><TriangleAlert aria-hidden="true" /><div><span>Baixo Estoque</span><strong>{lowStockCount}</strong><small className={styles.dangerTrend}>até 5 unidades</small></div></article>
+            <article className={styles.metric}><Coins aria-hidden="true" /><div><span>Valor do Estoque</span><strong>{money.format(currentValue)}</strong><small>preço × quantidade</small></div></article>
           </section>
 
           <div className={styles.toolbar}>
             <div className={styles.statusTabs} role="group" aria-label="Filtrar por estoque">
               {([ ["all", "Todos"], ["stock", "Em estoque"], ["low", "Baixo estoque"] ] as const).map(([key, label]) => <button key={key} type="button" aria-pressed={statusFilter === key} className={statusFilter === key ? styles.activeTab : ""} onClick={() => setStatusFilter(key)}>{label}</button>)}
             </div>
-            <label className={styles.searchBox}><Search aria-hidden="true" /><span className={styles.srOnly}>Buscar produto</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar produto por nome, categoria ou código..." /></label>
-            <div className={styles.filterAnchor}>
-              <button className={styles.filterButton} type="button" aria-expanded={filtersOpen} onClick={() => setFiltersOpen((value) => !value)}><Filter />Filtros<ChevronDown /></button>
-              {filtersOpen && <div className={styles.filterMenu} role="group" aria-label="Categoria"><strong>Categoria</strong>{["Todas as categorias", ...categories].map((category) => <button key={category} type="button" onClick={() => { setCategoryFilter(category); setFiltersOpen(false); }}><span>{category}</span>{categoryFilter === category && <Check />}</button>)}</div>}
-            </div>
+            <label className={styles.searchBox}><Search aria-hidden="true" /><span className={styles.srOnly}>Buscar produto</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar produto por nome ou descrição..." /></label>
           </div>
-          {categoryFilter !== "Todas as categorias" && <button className={styles.activeFilter} type="button" onClick={() => setCategoryFilter("Todas as categorias")}>{categoryFilter}<X /></button>}
+          {apiError && <p className={styles.apiError} role="alert">{apiError}</p>}
+          {isLoading && <p className={styles.loadingState} role="status">Carregando produtos do Supabase...</p>}
 
           <section className={styles.tableCard} aria-label="Produtos cadastrados">
             <div className={styles.tableScroll}>
               <table>
-                <thead><tr><th>Produto</th><th>Categoria</th><th><button type="button" onClick={() => changeSort("stock")}>Estoque <ArrowDownUp /></button></th><th><button type="button" onClick={() => changeSort("price")}>Preço <ArrowDownUp /></button></th><th>Status</th><th>Ações</th></tr></thead>
+                <thead><tr><th>Produto</th><th><button type="button" onClick={() => changeSort("stock")}>Estoque <ArrowDownUp /></button></th><th><button type="button" onClick={() => changeSort("price")}>Preço <ArrowDownUp /></button></th><th>Status</th><th>Ações</th></tr></thead>
                 <tbody>
                   {filteredProducts.map((product) => {
-                    const CategoryIcon = categoryIcons[product.category] ?? Package;
                     const low = product.stock <= 5;
                     return <tr key={product.id} className={low ? styles.lowRow : ""}>
-                      <td><div className={styles.productCell}><ProductThumbnail art={product.art} /><div><strong>{product.name}</strong><span>Cód. {product.code}</span></div></div></td>
-                      <td><span className={styles.categoryPill}><CategoryIcon />{product.category}</span></td>
+                      <td><div className={styles.productCell}><ProductThumbnail art={product.art} /><div><strong>{product.name}</strong><span>{product.description || "Sem descrição"}</span></div></div></td>
                       <td className={low ? styles.lowStock : styles.stock}>{product.stock} <span>un</span></td>
                       <td className={styles.price}>{money.format(product.price)}</td>
                       <td><span className={low ? styles.lowStatus : styles.inStockStatus}>{low ? <CircleAlert /> : <CheckCircle2 />}{low ? "Baixo estoque" : "Em estoque"}</span></td>
@@ -215,15 +267,15 @@ export default function ProductsPage() {
                   })}
                 </tbody>
               </table>
-              {filteredProducts.length === 0 && <p className={styles.emptyState}>Nenhum produto encontrado para esses filtros.</p>}
+              {!isLoading && filteredProducts.length === 0 && <p className={styles.emptyState}>{products.length ? "Nenhum produto encontrado para esses filtros." : "Ainda não há produtos cadastrados no Supabase."}</p>}
             </div>
           </section>
         </div>
       </main>
 
-      {modal && <div className={styles.modalOverlay} onMouseDown={(event) => { if (event.target === event.currentTarget) setModal(null); }}><section className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="product-dialog-title"><div className={styles.modalHeader}><h2 id="product-dialog-title">{modal === "new" ? "Novo Produto" : modal === "edit" ? "Editar Produto" : "Detalhes do Produto"}</h2><button type="button" aria-label="Fechar" onClick={() => setModal(null)}><X /></button></div>{modal === "view" ? <div className={styles.productDetail}><ProductThumbnail art={draft.art} /><div><strong>{draft.name}</strong><span>Cód. {draft.code}</span></div><dl><div><dt>Categoria</dt><dd>{draft.category}</dd></div><div><dt>Estoque</dt><dd>{draft.stock} un</dd></div><div><dt>Preço</dt><dd>{money.format(draft.price)}</dd></div></dl><button type="button" onClick={() => setModal(null)}>Fechar</button></div> : <form className={styles.productForm} onSubmit={saveProduct}><label>Nome<input required autoFocus value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label><label>Código<input required value={draft.code} onChange={(event) => setDraft({ ...draft, code: event.target.value })} /></label><label>Categoria<select value={draft.category} onChange={(event) => setDraft({ ...draft, category: event.target.value })}>{categories.map((category) => <option key={category}>{category}</option>)}</select></label><div className={styles.formGrid}><label>Estoque<input type="number" min="0" required value={draft.stock} onChange={(event) => setDraft({ ...draft, stock: Number(event.target.value) })} /></label><label>Preço (R$)<input type="number" min="0" step="0.01" required value={draft.price} onChange={(event) => setDraft({ ...draft, price: Number(event.target.value) })} /></label></div><div className={styles.formActions}><button type="button" onClick={() => setModal(null)}>Cancelar</button><button type="submit">Salvar produto</button></div></form>}</section></div>}
+      {modal && <div className={styles.modalOverlay} onMouseDown={(event) => { if (event.target === event.currentTarget && !isSaving) setModal(null); }}><section className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="product-dialog-title"><div className={styles.modalHeader}><h2 id="product-dialog-title">{modal === "new" ? "Novo Produto" : modal === "edit" ? "Editar Produto" : "Detalhes do Produto"}</h2><button type="button" aria-label="Fechar" onClick={() => setModal(null)}><X /></button></div>{modal === "view" ? <div className={styles.productDetail}><ProductThumbnail art={draft.art} /><div><strong>{draft.name}</strong><span>{draft.description || "Sem descrição"}</span></div><dl><div><dt>Estoque</dt><dd>{draft.stock} un</dd></div><div><dt>Preço</dt><dd>{money.format(draft.price)}</dd></div></dl><button type="button" onClick={() => setModal(null)}>Fechar</button></div> : <form className={styles.productForm} onSubmit={saveProduct}><label>Nome<input required autoFocus minLength={2} maxLength={120} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label><label>Descrição<input maxLength={5000} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label><div className={styles.formGrid}><label>Estoque<input type="number" min="0" step="1" required value={draft.stock} onChange={(event) => setDraft({ ...draft, stock: Number(event.target.value) })} /></label><label>Preço (R$)<input type="number" min="0" step="0.01" required value={draft.price} onChange={(event) => setDraft({ ...draft, price: Number(event.target.value) })} /></label></div><div className={styles.formActions}><button type="button" onClick={() => setModal(null)} disabled={isSaving}>Cancelar</button><button type="submit" disabled={isSaving}>{isSaving ? "Salvando..." : "Salvar produto"}</button></div></form>}</section></div>}
 
-      {deleteTarget && <div className={styles.modalOverlay}><section className={styles.confirmModal} role="alertdialog" aria-modal="true" aria-labelledby="delete-title"><h2 id="delete-title">Excluir produto?</h2><p>{deleteTarget.name} será removido desta lista.</p><div><button type="button" onClick={() => setDeleteTarget(null)}>Cancelar</button><button type="button" onClick={() => { setProducts((current) => current.filter((product) => product.id !== deleteTarget.id)); setDeleteTarget(null); }}>Excluir</button></div></section></div>}
+      {deleteTarget && <div className={styles.modalOverlay}><section className={styles.confirmModal} role="alertdialog" aria-modal="true" aria-labelledby="delete-title"><h2 id="delete-title">Desativar produto?</h2><p>{deleteTarget.name} será removido do catálogo ativo. O registro e o histórico de vendas serão preservados.</p><div><button type="button" onClick={() => setDeleteTarget(null)} disabled={isSaving}>Cancelar</button><button type="button" onClick={deactivateProduct} disabled={isSaving}>{isSaving ? "Desativando..." : "Desativar"}</button></div></section></div>}
     </div>
   );
 }

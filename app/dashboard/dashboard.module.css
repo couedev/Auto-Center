@@ -176,9 +176,25 @@
 }
 
 .notificationButton:hover,
-.branchButton:hover { border-color: rgba(174, 240, 0, .78); }
+.branchButton:hover,
+.signOutButton:hover { border-color: rgba(174, 240, 0, .78); }
 
 .notificationButton svg { width: 19px; height: 19px; stroke-width: 1.8; }
+
+.signOutButton {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(237, 241, 236, .5);
+  border-radius: 15px;
+  color: #f4f5f2;
+  background: linear-gradient(145deg, rgba(27, 29, 29, .8), rgba(4, 5, 5, .94));
+  cursor: pointer;
+}
+
+.signOutButton:disabled { cursor: wait; opacity: .65; }
+.signOutButton svg { width: 19px; height: 19px; stroke-width: 1.8; }
 
 .notificationDot {
   position: absolute;
@@ -283,6 +299,19 @@
   background: var(--lime);
   box-shadow: 0 0 12px rgba(173, 240, 0, .35);
 }
+
+.dashboardError,
+.dashboardLoading {
+  margin: 0 0 16px;
+  padding: 11px 14px;
+  border: 1px solid rgba(212, 225, 202, .25);
+  border-radius: 11px;
+  color: #e7e9e4;
+  background: rgba(17, 20, 15, .9);
+  font-size: 13px;
+}
+
+.dashboardError { border-color: rgba(255, 107, 107, .42); color: #ffc1c1; }
 
 .periodPicker {
   min-width: 322px;
@@ -703,7 +732,9 @@
   .logoLink { width: min(52vw, 260px); height: auto; }
   .topActions { gap: 9px; padding: 0; }
   .notificationButton { width: 42px; height: 42px; border-radius: 13px; }
+  .signOutButton { width: 42px; height: 42px; border-radius: 13px; }
   .notificationButton svg { width: 18px; height: 18px; }
+  .signOutButton svg { width: 18px; height: 18px; }
   .branchButton { min-width: 0; width: 45px; height: 42px; padding: 0; justify-content: center; border-radius: 13px; }
   .branchButton span, .branchButton .chevron { display: none; }
   .branchIcon { width: 18px; height: 18px; }

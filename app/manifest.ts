@@ -2,26 +2,26 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    id: "/",
-    name: "Lava Jato - Gestão ",
-    short_name: "Lava Jato",
-    description: "Gestão de atendimentos, clientes e serviços do seu lava-jato.",
+    id: "/aplicativo",
+    name: "Auto CT Auto Center",
+    short_name: "Auto CT",
+    description: "Agende serviços e acompanhe seus atendimentos no Auto CT.",
     lang: "pt-BR",
-    start_url: "/",
-    scope: "/",
+    start_url: "/aplicativo",
+    scope: "/aplicativo",
     display: "standalone",
     background_color: "#0d0f0c",
-    theme_color: "#0d0f0c",
-    categories: ["productivity", "education"],
+    theme_color: "#10130e",
+    categories: ["lifestyle", "shopping"],
     icons: [
       {
-        src: "/icon/icon-autocenter-192.png",
+        src: "/icon/icon-auto-center-192.png",
         sizes: "192x192",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/icon/icon-autocenter-512.png",
+        src: "/icon/icon-auto-center-512.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "any",

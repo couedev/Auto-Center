@@ -2,20 +2,44 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import MobileTabBar from "./mobile-tab-bar";
-import { services } from "./services";
+import { formatPrice, mapCatalogService } from "./services";
 import type { Service } from "./services";
 import styles from "./home.module.css";
 
 export default function ApplicationHomePage() {
   const router = useRouter();
+  const [services, setServices] = useState<Service[]>([]);
+  const [companyName, setCompanyName] = useState("Auto CT");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadServices() {
+      try {
+        const response = await fetch("/api/app/catalog", { cache: "no-store" });
+        const result = await response.json() as { services?: unknown[]; config?: { name?: string }; message?: string };
+        if (!response.ok) throw new Error(result.message || "Não foi possível carregar os serviços.");
+        if (!active) return;
+        setServices((result.services ?? []).map(mapCatalogService).filter((item): item is Service => item !== null));
+        if (typeof result.config?.name === "string" && result.config.name.trim()) setCompanyName(result.config.name);
+      } catch (cause) {
+        if (!active) return;
+        setError(cause instanceof Error ? cause.message : "Não foi possível carregar os serviços.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    void loadServices();
+    return () => { active = false; };
+  }, []);
 
   function chooseService(service: Service) {
-    try {
-      window.sessionStorage.setItem("auto-ct-selected-service", service.id);
-    } catch {
-      // O agendamento ainda pode ser aberto com o serviço padrão.
-    }
+    try { window.sessionStorage.setItem("auto-ct-selected-service", service.id); } catch {}
     router.push("/aplicativo/agendamento");
   }
 
@@ -40,29 +64,38 @@ export default function ApplicationHomePage() {
         <div className={styles.content}>
           <section className={styles.welcome} aria-labelledby="welcome-title">
             <h1 id="welcome-title">Bem-vindo!</h1>
-            <p>Escolha um serviço e agende seu horário.</p>
+            <p>Escolha um serviço na {companyName} e agende seu horário.</p>
           </section>
 
           <section className={styles.servicesSection} aria-labelledby="services-title">
             <h2 id="services-title">Nossos serviços</h2>
-            <div className={styles.serviceList}>
-              {services.map((service) => {
-                return (
+            {loading ? (
+              <p className={styles.loadMessage} role="status">Carregando serviços...</p>
+            ) : error ? (
+              <div className={styles.loadError} role="alert">
+                <p>{error}</p>
+                <button type="button" onClick={() => window.location.reload()}>Tentar novamente</button>
+              </div>
+            ) : services.length ? (
+              <div className={styles.serviceList}>
+                {services.map((service) => (
                   <article className={styles.serviceCard} key={service.id}>
                     <div className={`${styles.serviceThumb} ${styles[service.tone]}`} aria-hidden="true">
                       <service.Icon strokeWidth={1.65} />
                     </div>
                     <div className={styles.serviceInfo}>
                       <h3>{service.name}</h3>
-                      <strong>R$ {service.price}</strong>
+                      <strong>{formatPrice(service.price)}</strong>
                     </div>
                     <button type="button" className={styles.bookButton} aria-label={`Agendar ${service.name}`} onClick={() => chooseService(service)}>
                       Agendar
                     </button>
                   </article>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <p className={styles.loadMessage}>Nenhum serviço está disponível para agendamento agora.</p>
+            )}
           </section>
         </div>
 

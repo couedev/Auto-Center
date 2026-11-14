@@ -44,6 +44,8 @@
 .timeSlots button:hover:not(:disabled) { border-color: #8bea00; }
 .timeSlots button:disabled { color: #adb3aa; cursor: default; }
 .timeSlots .selectedTime { border-color: #94ea00; color: #152100; background: linear-gradient(180deg, #c2ff34, #8de900); font-weight: 760; }
+.slotMessage { margin: 13px 0 0; color: #4b5349; font-size: 12px; line-height: 1.45; }
+.inlineError { margin: 13px 0 0; color: #a32121; font-size: 12px; line-height: 1.45; }
 
 .summary { min-height: 70px; margin-top: 23px; padding: 11px 15px; display: grid; grid-template-columns: 1.45fr .8fr; border-radius: 13px; background: #f0f2f1; }
 .summary > div { min-width: 0; display: flex; align-items: center; gap: 11px; }
@@ -51,11 +53,27 @@
 .summary svg { width: 22px; height: 22px; flex: 0 0 auto; color: #313a30; stroke-width: 1.6; }
 .summary span { min-width: 0; display: grid; gap: 4px; color: #454c43; font-size: 11px; }
 .summary strong { overflow: hidden; color: #151b14; font-size: 12px; font-weight: 720; text-overflow: ellipsis; white-space: nowrap; }
+.bookingForm { margin-top: 22px; padding-top: 16px; display: grid; gap: 12px; border-top: 1px solid #e3e6e2; }
+.bookingForm > label { display: grid; gap: 6px; color: #293329; font-size: 12px; font-weight: 700; }
+.bookingForm > label > span { display: inline; color: #697166; font-weight: 500; }
+.bookingForm input { width: 100%; min-height: 43px; padding: 0 11px; border: 1px solid #d5ddd3; border-radius: 10px; outline: 0; color: #121812; background: #fff; font: inherit; font-size: 14px; font-weight: 400; }
+.bookingForm input:focus { border-color: #82d600; box-shadow: 0 0 0 3px rgba(139, 234, 0, .12); }
+.honeypot { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+.turnstile { min-height: 65px; display: flex; justify-content: center; }
+.turnstileArea { display: grid; justify-items: center; gap: 3px; }
+.captchaHint { margin: 0; color: #50594d; font-size: 11px; text-align: center; }
 .confirmButton { width: 100%; min-height: 50px; margin-top: 23px; display: flex; align-items: center; justify-content: center; gap: 11px; border: 1px solid #a5f000; border-radius: 13px; color: #102000; background: linear-gradient(180deg, #c9ff2a, #8fea00); box-shadow: 0 5px 13px rgba(107, 179, 0, .14); font-size: 16px; font-weight: 760; cursor: pointer; }
 .confirmButton svg { width: 22px; height: 22px; stroke-width: 1.9; }
 .confirmButton:disabled { cursor: default; opacity: .62; }
-.confirmed, .error { margin: 15px 0 -8px; display: flex; align-items: center; justify-content: center; gap: 7px; color: #368c09; text-align: center; font-size: 12px; font-weight: 650; }
-.confirmed svg { width: 17px; height: 17px; }
+.confirmed { margin: 3px 0 0; padding: 12px; display: flex; align-items: flex-start; gap: 9px; border: 1px solid #b5df87; border-radius: 12px; color: #285d0b; background: #f6fbeF; font-size: 12px; line-height: 1.4; }
+.confirmed > svg { width: 19px; height: 19px; flex: 0 0 auto; margin-top: 1px; }
+.confirmed div { display: grid; gap: 4px; }
+.confirmed strong { font-size: 13px; }
+.whatsappLink { min-height: 43px; display: grid; place-items: center; border: 1px solid #9bc99a; border-radius: 11px; color: #145a27; background: #f2fbf3; font-size: 13px; font-weight: 750; text-decoration: none; }
+.error { margin: 0; color: #b32727; text-align: center; font-size: 12px; font-weight: 650; line-height: 1.45; }
+.emptyState { padding: 18px; border: 1px solid #e0e5de; border-radius: 13px; color: #424a40; background: #fff; font-size: 13px; line-height: 1.5; text-align: center; }
+.emptyState p { margin: 0 0 10px; }
+.emptyState a { color: #368c00; font-weight: 750; text-decoration: none; }
 .error { color: #b32727; }
 
 @media (max-width: 370px) {

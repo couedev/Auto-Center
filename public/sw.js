@@ -1,51 +1,40 @@
-/* global self */
-
-const CACHE_NAME = "lavajato-shell-v1";
-const OFFLINE_URL = "/offline.html";
+const CACHE_NAME = "auto-ct-pwa-v1";
+const OFFLINE_PAGE = "/offline.html";
+const OFFLINE_ASSETS = [OFFLINE_PAGE, "/assets/Auto%20CT%20transparent%20logo-2.webp"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    self.caches
-      .open(CACHE_NAME)
-      .then((cache) => cache.addAll([OFFLINE_URL]))
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(OFFLINE_ASSETS))
       .then(() => self.skipWaiting()),
   );
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    self.caches
-      .keys()
-      .then((cacheNames) =>
-        Promise.all(
-          cacheNames
-            .filter((cacheName) => cacheName.startsWith("lavajato-") && cacheName !== CACHE_NAME)
-            .map((cacheName) => self.caches.delete(cacheName)),
-        ),
-      )
+    caches.keys()
+      .then((keys) => Promise.all(
+        keys.filter((key) => key.startsWith("auto-ct-pwa-") && key !== CACHE_NAME)
+          .map((key) => caches.delete(key)),
+      ))
       .then(() => self.clients.claim()),
   );
 });
 
 self.addEventListener("fetch", (event) => {
   const request = event.request;
-  const requestUrl = new self.URL(request.url);
+  if (request.method !== "GET" || request.mode !== "navigate") return;
 
-  if (request.method !== "GET" || requestUrl.origin !== self.location.origin || request.mode !== "navigate") {
-    return;
-  }
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
 
   event.respondWith(
-    self.fetch(request)
-      .then(async (response) => {
-        if (response.ok && requestUrl.pathname === "/") {
-          await self.caches.open(CACHE_NAME).then((cache) => cache.put("/", response.clone()));
-        }
-        return response;
-      })
-      .catch(async () => {
-        return (await self.caches.match("/", { ignoreSearch: true })) || (await self.caches.match(OFFLINE_URL));
-      }),
-      ),
+    fetch(request).catch(async () => {
+      const cache = await caches.open(CACHE_NAME);
+      return (await cache.match(OFFLINE_PAGE)) || new Response(
+        "Você está sem conexão. Conecte-se à internet e tente novamente.",
+        { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8" } },
+      );
+    }),
   );
 });
