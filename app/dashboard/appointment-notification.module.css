@@ -1,0 +1,83 @@
+.overlay {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, .76);
+  backdrop-filter: blur(7px);
+  animation: fadeIn .2s ease-out;
+}
+
+.popup {
+  position: relative;
+  width: min(100%, 460px);
+  padding: 25px;
+  overflow: hidden;
+  border: 1px solid rgba(190, 244, 68, .54);
+  border-radius: 22px;
+  color: #f5f6f2;
+  background:
+    radial-gradient(ellipse at 50% -15%, rgba(155, 223, 10, .2), transparent 53%),
+    linear-gradient(155deg, #1a1d16, #090a09 65%);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, .72), 0 0 38px rgba(154, 229, 0, .13), inset 0 1px rgba(255, 255, 255, .07);
+  animation: riseIn .24s cubic-bezier(.2, .8, .2, 1);
+}
+
+.popup::before {
+  position: absolute;
+  top: 0;
+  left: 12%;
+  width: 76%;
+  height: 1px;
+  content: "";
+  background: linear-gradient(90deg, transparent, #c7ff39, transparent);
+  box-shadow: 0 0 18px rgba(183, 244, 26, .72);
+}
+
+.topLine { display: flex; align-items: center; gap: 10px; }
+.iconBadge { width: 45px; height: 45px; display: grid; place-items: center; border: 1px solid rgba(187, 240, 38, .43); border-radius: 14px; color: #c5fa45; background: rgba(148, 206, 22, .11); }
+.iconBadge svg { width: 21px; height: 21px; }
+.liveBadge { min-height: 27px; padding: 0 10px; display: inline-flex; align-items: center; gap: 7px; border: 1px solid rgba(179, 234, 44, .23); border-radius: 20px; color: #c8f264; background: rgba(148, 206, 22, .1); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.liveBadge i { width: 6px; height: 6px; border-radius: 50%; background: #b9f02c; box-shadow: 0 0 8px #b9f02c; }
+.closeButton { width: 36px; height: 36px; margin-left: auto; display: grid; place-items: center; border: 1px solid rgba(255, 255, 255, .13); border-radius: 11px; color: #aeb3a8; background: rgba(255, 255, 255, .04); cursor: pointer; }
+.closeButton:hover { color: #fff; border-color: rgba(255, 255, 255, .35); }
+.closeButton:focus-visible, .dismissButton:focus-visible, .soundButton:focus-visible { outline: 2px solid #c5fa45; outline-offset: 3px; }
+.closeButton svg { width: 18px; height: 18px; }
+.eyebrow { margin: 24px 0 7px; color: #b9c19f; font-size: 12px; letter-spacing: .055em; }
+.popup h2 { margin: 0; color: #f7f8f4; font-size: clamp(26px, 7vw, 32px); font-weight: 730; letter-spacing: -.045em; }
+.description { margin: 8px 0 20px; color: #afb3a9; font-size: 14px; line-height: 1.5; }
+
+.amountCard { min-height: 86px; padding: 14px 17px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid rgba(178, 232, 53, .29); border-radius: 15px; background: linear-gradient(100deg, rgba(138, 189, 25, .16), rgba(117, 151, 28, .055)); }
+.amountCard span { color: #c2c8b9; font-size: 13px; }
+.amountCard strong { color: #d0ff64; font-size: clamp(22px, 6vw, 29px); font-weight: 750; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
+
+.details { margin: 18px 0 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 15px 13px; }
+.details > div { min-width: 0; display: flex; align-items: flex-start; gap: 9px; }
+.details > div > svg { width: 17px; height: 17px; margin-top: 3px; flex: 0 0 auto; color: #b7e744; stroke-width: 1.8; }
+.details > div > span { min-width: 0; display: grid; gap: 4px; }
+.details small { color: #888e82; font-size: 10px; }
+.details strong { overflow-wrap: anywhere; color: #e6e9e1; font-size: 12px; font-weight: 620; line-height: 1.45; }
+
+.actions { display: flex; justify-content: flex-end; gap: 9px; }
+.dismissButton, .soundButton { min-height: 42px; padding: 0 17px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 12px; font-size: 13px; font-weight: 700; cursor: pointer; }
+.dismissButton { border: 1px solid #b4ef25; color: #10130a; background: linear-gradient(180deg, #d0ff49, #a7e719); box-shadow: 0 0 18px rgba(172, 234, 30, .14); }
+.dismissButton:hover { filter: brightness(1.08); }
+.soundButton { border: 1px solid rgba(255, 255, 255, .2); color: #e8ebdf; background: rgba(255, 255, 255, .04); }
+.soundButton svg { width: 16px; height: 16px; color: #c6f34a; }
+.queueNote { margin: 13px 0 0; color: #9ba18f; font-size: 11px; text-align: right; }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes riseIn { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+@media (max-width: 480px) {
+  .popup { padding: 21px 18px 18px; border-radius: 19px; }
+  .details { gap: 14px 8px; }
+  .details > div { gap: 7px; }
+  .details strong { font-size: 11px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay, .popup { animation: none; }
+}
