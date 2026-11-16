@@ -78,12 +78,15 @@ export async function GET(request: Request) {
         .eq("status", "pendente")
         .eq("pedidos.status", orderStatus);
 
-    const [ordersResult, previousOrdersResult, appointmentsResult, completedResult, progressResult, pendingRequestsResult, confirmedRequestsResult, previousAppointmentsResult, previousCompletedResult, requestsAgendaResult, agendaResult] = await Promise.all([
+    const [ordersResult, previousOrdersResult, appointmentsResult, completedResult, progressResult, pendingRequestsResult, confirmedRequestsResult, previousAppointmentsResult, previousCompletedResult, requestsAgendaResult, progressAgendaResult, agendaResult] = await Promise.all([
       paidOrders(range.start, range.end),
       paidOrders(range.previousStart, range.previousEnd),
       appointmentCounts(range.start, range.end),
       appointmentCounts(range.start, range.end, "concluido"),
-      appointmentCounts(range.start, range.end, "em_andamento"),
+      context.supabase
+        .from("agendamentos")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "em_andamento"),
       requestCounts("pendente"),
       requestCounts("confirmado"),
       appointmentCounts(range.previousStart, range.previousEnd),
@@ -94,7 +97,13 @@ export async function GET(request: Request) {
         .eq("status", "pendente")
         .in("pedidos.status", ["pendente", "confirmado"])
         .order("criado_em", { ascending: false })
-        .limit(30),
+        .limit(100),
+      context.supabase
+        .from("agendamentos")
+        .select("id,data_inicio,veiculo,placa,status,pedidos!inner(nome_contato,status,pedido_itens(nome_item))")
+        .eq("status", "em_andamento")
+        .order("data_inicio", { ascending: true })
+        .limit(100),
       context.supabase
         .from("agendamentos")
         .select("id,data_inicio,veiculo,placa,status,pedidos!inner(nome_contato,status,pedido_itens(nome_item))")
@@ -105,7 +114,7 @@ export async function GET(request: Request) {
         .limit(20),
     ]);
 
-    const queryErrors = [ordersResult.error, previousOrdersResult.error, appointmentsResult.error, completedResult.error, progressResult.error, pendingRequestsResult.error, confirmedRequestsResult.error, previousAppointmentsResult.error, previousCompletedResult.error, requestsAgendaResult.error, agendaResult.error];
+    const queryErrors = [ordersResult.error, previousOrdersResult.error, appointmentsResult.error, completedResult.error, progressResult.error, pendingRequestsResult.error, confirmedRequestsResult.error, previousAppointmentsResult.error, previousCompletedResult.error, requestsAgendaResult.error, progressAgendaResult.error, agendaResult.error];
     if (queryErrors.some(Boolean)) {
       return apiJson({ message: "Não foi possível carregar as informações do painel. Tente novamente em instantes." }, 503);
     }
@@ -132,6 +141,7 @@ export async function GET(request: Request) {
     const agendaRows = new Map<string, AppointmentRow>();
     for (const appointment of [
       ...((requestsAgendaResult.data ?? []) as unknown as AppointmentRow[]),
+      ...((progressAgendaResult.data ?? []) as unknown as AppointmentRow[]),
       ...((agendaResult.data ?? []) as unknown as AppointmentRow[]),
     ]) agendaRows.set(appointment.id, appointment);
 
@@ -143,7 +153,7 @@ export async function GET(request: Request) {
         ? "done"
         : appointment.status === "em_andamento"
           ? "progress"
-          : order?.status === "confirmado" ? "confirmed" : "pending";
+          : "pending";
       const appointmentDate = new Date(appointment.data_inicio);
       const isInSelectedDay = appointmentDate >= range.start && appointmentDate < range.end;
       const timeOptions: Intl.DateTimeFormatOptions = {
@@ -180,8 +190,7 @@ export async function GET(request: Request) {
       revenueSeries,
       appointments,
       appointmentCounts: {
-        pending: pendingRequestsResult.count ?? 0,
-        confirmed: confirmedRequestsResult.count ?? 0,
+        pending: (pendingRequestsResult.count ?? 0) + (confirmedRequestsResult.count ?? 0),
         progress: currentProgress,
         done: currentCompleted,
       },
@@ -207,7 +216,7 @@ export async function PATCH(request: Request) {
   }
   const body = payload as { id?: unknown; status?: unknown };
 
-  if (typeof body.id !== "string" || !/^[0-9a-f-]{36}$/i.test(body.id) || !["confirmado", "em_andamento", "concluido"].includes(String(body.status))) {
+  if (typeof body.id !== "string" || !/^[0-9a-f-]{36}$/i.test(body.id) || !["em_andamento", "concluido"].includes(String(body.status))) {
     return apiJson({ message: "Dados do agendamento inválidos." }, 400);
   }
 
@@ -222,31 +231,6 @@ export async function PATCH(request: Request) {
     if (appointmentError) return apiJson({ message: "Não foi possível carregar o agendamento." }, 503);
     if (!appointment) return apiJson({ message: "Agendamento não encontrado." }, 404);
 
-    if (body.status === "confirmado") {
-      if (appointment.status !== "pendente") return apiJson({ message: "Este agendamento não pode mais ser confirmado." }, 409);
-
-      const { data: order, error: orderError } = await context.supabase
-        .from("pedidos")
-        .select("status")
-        .eq("id", appointment.pedido_id)
-        .maybeSingle();
-      if (orderError) return apiJson({ message: "Não foi possível confirmar o agendamento." }, 503);
-      if (order?.status === "confirmado") return apiJson({ ok: true });
-      if (order?.status !== "pendente") return apiJson({ message: "Este pedido não pode mais ser confirmado." }, 409);
-
-      const { data, error } = await context.supabase
-        .from("pedidos")
-        .update({ status: "confirmado" })
-        .eq("id", appointment.pedido_id)
-        .eq("status", "pendente")
-        .select("id")
-        .maybeSingle();
-
-      if (error) return apiJson({ message: "Não foi possível confirmar o agendamento." }, 503);
-      if (!data) return apiJson({ message: "O pedido foi atualizado em outra sessão. Atualize o painel." }, 409);
-      return apiJson({ ok: true });
-    }
-
     if (body.status === "em_andamento") {
       if (appointment.status !== "pendente") return apiJson({ message: "Este agendamento não pode ser iniciado." }, 409);
       const { data: order, error: orderError } = await context.supabase
@@ -255,7 +239,28 @@ export async function PATCH(request: Request) {
         .eq("id", appointment.pedido_id)
         .maybeSingle();
       if (orderError) return apiJson({ message: "Não foi possível iniciar o serviço." }, 503);
-      if (order?.status !== "confirmado") return apiJson({ message: "Confirme o agendamento antes de iniciar o serviço." }, 409);
+      if (order?.status === "pendente") {
+        const { data: confirmedOrder, error: confirmError } = await context.supabase
+          .from("pedidos")
+          .update({ status: "confirmado" })
+          .eq("id", appointment.pedido_id)
+          .eq("status", "pendente")
+          .select("id")
+          .maybeSingle();
+        if (confirmError) return apiJson({ message: "Não foi possível iniciar o serviço." }, 503);
+        if (!confirmedOrder) {
+          const { data: latestOrder, error: latestOrderError } = await context.supabase
+            .from("pedidos")
+            .select("status")
+            .eq("id", appointment.pedido_id)
+            .maybeSingle();
+          if (latestOrderError || latestOrder?.status !== "confirmado") {
+            return apiJson({ message: "O pedido foi atualizado em outra sessão. Atualize o painel." }, 409);
+          }
+        }
+      } else if (order?.status !== "confirmado") {
+        return apiJson({ message: "Este pedido não pode ser iniciado." }, 409);
+      }
     }
 
     if (body.status === "concluido" && appointment.status !== "em_andamento") {
@@ -266,7 +271,7 @@ export async function PATCH(request: Request) {
       .from("agendamentos")
       .update({ status: body.status as "em_andamento" | "concluido" })
       .eq("id", body.id)
-      .neq("status", "cancelado")
+      .eq("status", body.status === "em_andamento" ? "pendente" : "em_andamento")
       .select("id")
       .maybeSingle();
 

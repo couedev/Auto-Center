@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, X } from "lucide-react";
+import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3 } from "lucide-react";
 import MobileTabBar from "../mobile-tab-bar";
 import { formatPrice, mapCatalogService } from "../services";
 import type { Service } from "../services";
@@ -13,8 +14,7 @@ import styles from "./booking.module.css";
 type TimeParts = { date: string; time: string };
 type Slot = { horario: string; disponivel: boolean };
 type BookingForm = { name: string; phone: string; email: string; vehicle: string; plate: string };
-type BookingResult = { id: string; token: string; total: number; status: string };
-type WhatsAppInfo = { enabled: boolean; number: string | null };
+type BookingResult = { id: string; token: string };
 
 const weekdays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
@@ -51,6 +51,7 @@ function isStoredProfile(value: unknown): value is Partial<BookingForm> {
 }
 
 export default function BookingPage() {
+  const router = useRouter();
   const [now, setNow] = useState<TimeParts>({ date: "", time: "" });
   const [service, setService] = useState<Service | null>(null);
   const [catalogError, setCatalogError] = useState("");
@@ -66,11 +67,6 @@ export default function BookingPage() {
   const [honeypot, setHoneypot] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState<BookingResult | null>(null);
-  const [whatsapp, setWhatsapp] = useState<WhatsAppInfo>({ enabled: false, number: null });
-  const trackedBookingId = success?.id;
-  const trackedBookingToken = success?.token;
-  const trackedBookingStatus = success?.status;
 
   useEffect(() => {
     let active = true;
@@ -144,41 +140,6 @@ export default function BookingPage() {
     return () => { active = false; };
   }, [service, selectedDate]);
 
-  useEffect(() => {
-    if (!trackedBookingId || !trackedBookingToken || ["concluido", "cancelado"].includes(trackedBookingStatus ?? "")) return;
-    let active = true;
-    let loading = false;
-
-    async function refreshBookingStatus() {
-      if (loading) return;
-      loading = true;
-      try {
-        const response = await fetch("/api/app/bookings/lookup", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          cache: "no-store",
-          body: JSON.stringify({ bookings: [{ id: trackedBookingId, token: trackedBookingToken }] }),
-        });
-        if (!response.ok) return;
-        const result = await response.json() as { appointments?: { id: string; status?: string }[] };
-        const current = result.appointments?.find((appointment) => appointment.id === trackedBookingId);
-        if (!active || !current?.status) return;
-        setSuccess((value) => value?.id === trackedBookingId ? { ...value, status: current.status! } : value);
-      } catch {
-        // O acompanhamento tenta novamente no próximo ciclo.
-      } finally {
-        loading = false;
-      }
-    }
-
-    void refreshBookingStatus();
-    const interval = window.setInterval(() => void refreshBookingStatus(), 30_000);
-    return () => {
-      active = false;
-      window.clearInterval(interval);
-    };
-  }, [trackedBookingId, trackedBookingToken, trackedBookingStatus]);
-
   if (!now.date) {
     return (
       <div className={styles.canvas}>
@@ -204,14 +165,12 @@ export default function BookingPage() {
 
   function updateForm(field: keyof BookingForm, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
-    setSuccess(null);
     setError("");
   }
 
   function chooseDate(date: string) {
     setSelectedDate(date);
     setSelectedTime(null);
-    setSuccess(null);
     setError("");
   }
 
@@ -247,28 +206,27 @@ export default function BookingPage() {
       });
       const result = await response.json() as {
         booking?: BookingResult;
-        whatsapp?: WhatsAppInfo;
         message?: string;
       };
       if (!response.ok || !result.booking?.id || !result.booking.token) {
         throw new Error(result.message || "Não foi possível enviar o agendamento.");
       }
 
+      try { window.localStorage.setItem("auto-ct-profile", JSON.stringify({ name: form.name, phone: form.phone, email: form.email })); } catch {}
+      let credentials: { id: string; token: string }[] = [];
       try {
-        window.localStorage.setItem("auto-ct-profile", JSON.stringify({ name: form.name, phone: form.phone, email: form.email }));
         const saved: unknown = JSON.parse(window.localStorage.getItem("auto-ct-booking-tokens") ?? "[]");
-        const credentials = Array.isArray(saved) ? saved.filter((item) =>
+        credentials = Array.isArray(saved) ? saved.filter((item) =>
           item && typeof item === "object" && typeof (item as { id?: unknown }).id === "string" && typeof (item as { token?: unknown }).token === "string",
         ) as { id: string; token: string }[] : [];
-        const next = credentials.filter((item) => item.id !== result.booking?.id);
-        next.push({ id: result.booking.id, token: result.booking.token });
-        window.localStorage.setItem("auto-ct-booking-tokens", JSON.stringify(next.slice(-20)));
       } catch {}
+      const next = credentials.filter((item) => item.id !== result.booking?.id);
+      next.push({ id: result.booking.id, token: result.booking.token });
+      try { window.localStorage.setItem("auto-ct-booking-tokens", JSON.stringify(next.slice(-20))); } catch {}
 
-      setSuccess(result.booking);
-      setWhatsapp(result.whatsapp ?? { enabled: false, number: null });
       setTurnstileToken("");
       setTurnstileResetKey((value) => value + 1);
+      router.push(`/aplicativo/agendamento/status?id=${encodeURIComponent(result.booking.id)}`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Não foi possível enviar o agendamento.");
       setTurnstileToken("");
@@ -276,76 +234,6 @@ export default function BookingPage() {
     } finally {
       setSubmitting(false);
     }
-  }
-
-  const whatsappDigits = whatsapp.number?.replace(/\D/g, "");
-  const whatsappHref = whatsapp.enabled && whatsappDigits
-    ? `https://wa.me/${whatsappDigits}?text=${encodeURIComponent(`Olá! Enviei um pedido de agendamento para ${service?.name} no dia ${dateLabel(selectedDate)} às ${selectedTime}.`)}`
-    : null;
-
-  if (success) {
-    const statusInfo = success.status === "confirmado"
-      ? { title: "Agendamento confirmado", label: "Confirmado pela unidade", message: "A unidade confirmou seu horário. Esperamos você!" }
-      : success.status === "em_andamento"
-        ? { title: "Serviço em andamento", label: "Atendimento iniciado", message: "Seu veículo já está sendo atendido pela equipe." }
-        : success.status === "concluido"
-          ? { title: "Serviço concluído", label: "Atendimento finalizado", message: "O atendimento foi finalizado. Obrigado por escolher a Auto CT!" }
-          : success.status === "cancelado"
-            ? { title: "Agendamento cancelado", label: "Cancelado", message: "Entre em contato com a unidade se precisar de ajuda." }
-            : { title: "Solicitação enviada", label: "Aguardando confirmação", message: "A unidade recebeu seu pedido e atualizará o status assim que confirmar o horário." };
-
-    return (
-      <div className={styles.canvas}>
-        <main className={styles.app}>
-          <header className={styles.header}>
-            <Link href="/aplicativo" aria-label="Voltar para serviços"><ChevronLeft /></Link>
-            <h1>Agendamento</h1>
-            <span aria-hidden="true" />
-          </header>
-          <span className={styles.headerUnderline} aria-hidden="true" />
-          <div className={styles.content}>
-            <section className={styles.statusScreen} aria-live="polite" aria-labelledby="booking-status-title">
-              <span className={`${styles.statusIcon} ${success.status === "cancelado" ? styles.statusIconCancelled : ""}`}>
-                {success.status === "pendente" ? <Clock3 aria-hidden="true" /> : success.status === "cancelado" ? <X aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}
-              </span>
-              <span className={styles.statusEyebrow}>Status do agendamento</span>
-              <h2 id="booking-status-title">{statusInfo.title}</h2>
-              <span className={`${styles.statusChip} ${success.status === "cancelado" ? styles.statusChipCancelled : ""}`}>{statusInfo.label}</span>
-              <p className={styles.statusMessage}>{statusInfo.message}</p>
-
-              <div className={styles.statusProgress}>
-                <div className={styles.statusProgressLine} />
-                <div className={`${styles.statusStep} ${styles.statusStepDone}`}>
-                  <span><CheckCircle2 aria-hidden="true" /></span>
-                  <div><strong>Solicitação enviada</strong><small>Recebida pela unidade</small></div>
-                </div>
-                <div className={`${styles.statusStep} ${success.status === "pendente" ? styles.statusStepCurrent : success.status === "cancelado" ? styles.statusStepCancelled : styles.statusStepDone}`}>
-                  <span>{success.status === "pendente" ? <Clock3 aria-hidden="true" /> : success.status === "cancelado" ? <X aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}</span>
-                  <div><strong>{success.status === "pendente" ? "Aguardando confirmação" : success.status === "cancelado" ? "Agendamento cancelado" : "Agendamento confirmado"}</strong><small>{success.status === "pendente" ? "A equipe está analisando o pedido" : success.status === "cancelado" ? "Fale com a unidade para mais informações" : "Data e horário confirmados"}</small></div>
-                </div>
-                {success.status === "em_andamento" && <div className={`${styles.statusStep} ${styles.statusStepCurrent}`}><span><Clock3 aria-hidden="true" /></span><div><strong>Serviço em andamento</strong><small>Atendimento iniciado</small></div></div>}
-                {success.status === "concluido" && <div className={`${styles.statusStep} ${styles.statusStepDone}`}><span><CheckCircle2 aria-hidden="true" /></span><div><strong>Serviço concluído</strong><small>Atendimento finalizado</small></div></div>}
-              </div>
-
-              <div className={styles.statusSummary}>
-                <div><span>Serviço</span><strong>{service?.name || "Serviço agendado"}</strong></div>
-                <div><span>Data e horário</span><strong>{dateLabel(selectedDate)} · {selectedTime}</strong></div>
-                <div><span>Veículo</span><strong>{form.vehicle}{form.plate ? ` · ${form.plate}` : ""}</strong></div>
-                <div><span>Valor registrado</span><strong>{formatPrice(success.total)}</strong></div>
-              </div>
-
-              {success.status === "pendente" && <p className={styles.statusAutoUpdate}>Esta tela atualiza o status automaticamente.</p>}
-              <div className={styles.statusActions}>
-                <Link href="/aplicativo/usuario" className={styles.statusProfileLink}>Meus agendamentos</Link>
-                {whatsappHref && <a className={styles.whatsappLink} href={whatsappHref} target="_blank" rel="noreferrer">Continuar pelo WhatsApp</a>}
-                <Link href="/aplicativo" className={styles.statusBackLink}>Voltar aos serviços</Link>
-              </div>
-            </section>
-          </div>
-          <MobileTabBar active="booking" />
-        </main>
-      </div>
-    );
   }
 
   return (
@@ -402,7 +290,7 @@ export default function BookingPage() {
                     {slots.map((slot) => {
                       const alreadyPassed = selectedDate === now.date && slot.horario <= now.time;
                       const disabled = !slot.disponivel || alreadyPassed;
-                      return <button key={slot.horario} type="button" disabled={disabled} aria-pressed={selectedTime === slot.horario} className={selectedTime === slot.horario ? styles.selectedTime : ""} onClick={() => { setSelectedTime(slot.horario); setSuccess(null); setError(""); }}>{slot.horario}</button>;
+                      return <button key={slot.horario} type="button" disabled={disabled} aria-pressed={selectedTime === slot.horario} className={selectedTime === slot.horario ? styles.selectedTime : ""} onClick={() => { setSelectedTime(slot.horario); setError(""); }}>{slot.horario}</button>;
                     })}
                   </div>
                 ) : (
@@ -429,20 +317,9 @@ export default function BookingPage() {
                   {!turnstileToken && <p className={styles.captchaHint}>Conclua a verificação de segurança para enviar.</p>}
                 </div>}
                 {error && <p className={styles.error} role="alert">{error}</p>}
-                {success && (
-                  <div className={styles.confirmed} role="status">
-                    <CheckCircle2 />
-                    <div>
-                      <strong>Solicitação enviada!</strong>
-                      <span>A unidade confirmará o horário. Você pode consultar esse pedido em Meu perfil neste aparelho.</span>
-                      {Number.isFinite(success.total) && <span>Valor registrado: {formatPrice(success.total)}</span>}
-                    </div>
-                  </div>
-                )}
-                {success && whatsappHref && <a className={styles.whatsappLink} href={whatsappHref} target="_blank" rel="noreferrer">Continuar pelo WhatsApp</a>}
-                <button className={styles.confirmButton} type="submit" disabled={!selectedTime || submitting || Boolean(success) || slotsLoading || (Boolean(siteKey) && !turnstileToken)}>
+                <button className={styles.confirmButton} type="submit" disabled={!selectedTime || submitting || slotsLoading || (Boolean(siteKey) && !turnstileToken)}>
                   <CheckCircle2 aria-hidden="true" />
-                  {submitting ? "Enviando solicitação..." : success ? "Solicitação enviada" : "Confirmar agendamento"}
+                  {submitting ? "Enviando solicitação..." : "Confirmar agendamento"}
                 </button>
               </form>
             </>

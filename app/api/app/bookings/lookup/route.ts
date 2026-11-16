@@ -36,7 +36,7 @@ export async function POST(request: Request) {
   const contentLength = Number(request.headers.get("content-length") ?? 0);
   if (contentLength > 8_192) return apiJson({ message: "A solicitação é grande demais." }, 413);
   if (!matchingOrigin(request)) return apiJson({ message: "Origem da solicitação inválida." }, 403);
-  const rate = takeRateLimit(request, "public-booking-lookup", 60, 15 * 60 * 1_000);
+  const rate = takeRateLimit(request, "public-booking-lookup", 90, 15 * 60 * 1_000);
   if (!rate.allowed) {
     return Response.json({ message: "Muitas consultas. Aguarde um pouco e tente novamente." }, {
       status: 429,
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
       const tokenHash = createHash("sha256").update(token, "utf8").digest("hex");
       const { data, error } = await privilegedSupabase
         .from("pedidos")
-        .select("id,status,token_vinculacao_hash,pedido_itens(nome_item),agendamentos(data_inicio,veiculo,placa,status)")
+        .select("id,status,valor_total,token_vinculacao_hash,pedido_itens(nome_item),agendamentos(data_inicio,veiculo,placa,status)")
         .eq("id", id)
         .eq("token_vinculacao_hash", tokenHash)
         .is("cliente_id", null)
@@ -74,6 +74,7 @@ export async function POST(request: Request) {
       const item = data as unknown as {
         id: string;
         status: string;
+        valor_total: number | string;
         pedido_itens?: { nome_item?: string }[];
         agendamentos?: { data_inicio?: string; veiculo?: string; placa?: string | null; status?: string }[]
           | { data_inicio?: string; veiculo?: string; placa?: string | null; status?: string }
@@ -95,6 +96,7 @@ export async function POST(request: Request) {
         time: dateTime.time,
         vehicle: appointment.veiculo ?? "",
         plate: appointment.placa ?? "",
+        amount: Number(item.valor_total || 0),
         status,
       } };
     }));
