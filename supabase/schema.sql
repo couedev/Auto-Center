@@ -105,6 +105,25 @@ create table public.agendamentos (
   ) where (status in ('pendente','em_andamento'))
 );
 
+-- Publica agendamentos; o cliente assina somente eventos INSERT.
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'agendamentos'
+  ) then
+    if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+      execute 'create publication supabase_realtime';
+    end if;
+
+    execute 'alter publication supabase_realtime add table public.agendamentos';
+  end if;
+end
+$$;
+
 create index idx_catalogo_tipo_ativo on public.catalogo(tipo, ativo);
 create index idx_pedidos_cliente on public.pedidos(cliente_id, criado_em desc);
 create index idx_pedidos_pagamento on public.pedidos(status_pagamento, pago_em desc);

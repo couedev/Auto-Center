@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BellRing, CalendarDays, CarFront, Clock3, UserRound, Volume2, X } from "lucide-react";
+import type { RealtimeChannel } from "@supabase/supabase-js";
+import { createClient as createSupabaseClient } from "@/lib/supabase/client";
 import styles from "./appointment-notification.module.css";
 
 type NewAppointment = {
@@ -13,9 +15,9 @@ type NewAppointment = {
   service: string;
   amount: number;
 };
+type RecentAppointmentsResult = { checkedAt: string; appointments: NewAppointment[] };
 
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-const pollingInterval = 15_000;
 
 export default function AppointmentNotification() {
   const [queue, setQueue] = useState<NewAppointment[]>([]);
@@ -23,7 +25,6 @@ export default function AppointmentNotification() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastCheckedAtRef = useRef<string | null>(null);
   const seenIdsRef = useRef(new Set<string>());
-  const isInitialCheckRef = useRef(true);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const appointment = queue[0] ?? null;
 
@@ -34,47 +35,110 @@ export default function AppointmentNotification() {
     audio.load();
 
     let active = true;
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let subscribed = false;
+    let syncing = false;
+    let syncAgain = false;
+    let channel: RealtimeChannel | null = null;
+    const supabase = createSupabaseClient();
 
-    async function checkForAppointments() {
+    async function fetchRecent(since?: string): Promise<RecentAppointmentsResult | null> {
       try {
-        const query = lastCheckedAtRef.current
-          ? `?since=${encodeURIComponent(lastCheckedAtRef.current)}`
-          : "";
+        const query = since ? `?since=${encodeURIComponent(since)}` : "";
         const response = await fetch(`/api/admin/appointments/recent${query}`, { cache: "no-store" });
-        if (!response.ok) return;
-
+        if (!response.ok) return null;
         const result = await response.json() as {
           checkedAt?: string;
           appointments?: NewAppointment[];
         };
-        if (!active || !result.checkedAt || !Array.isArray(result.appointments)) return;
-
-        const found = result.appointments.filter((item) => !seenIdsRef.current.has(item.id));
-        result.appointments.forEach((item) => seenIdsRef.current.add(item.id));
-        lastCheckedAtRef.current = result.checkedAt;
-
-        if (isInitialCheckRef.current) {
-          isInitialCheckRef.current = false;
-        } else if (found.length) {
-          setQueue((current) => [...current, ...found.reverse()]);
-          const audio = audioRef.current;
-          if (audio) {
-            audio.currentTime = 0;
-            void audio.play().then(() => setSoundBlocked(false)).catch(() => setSoundBlocked(true));
-          }
-        }
+        if (!result.checkedAt || !Array.isArray(result.appointments)) return null;
+        return { checkedAt: result.checkedAt, appointments: result.appointments };
       } catch {
-        // A temporary network error is retried on the next polling cycle.
-      } finally {
-        if (active) timeoutId = setTimeout(checkForAppointments, pollingInterval);
+        return null;
       }
     }
 
-    void checkForAppointments();
+    function enqueueAppointments(items: NewAppointment[]) {
+      const found = items.filter((item) => {
+        if (seenIdsRef.current.has(item.id)) return false;
+        seenIdsRef.current.add(item.id);
+        return true;
+      });
+      if (!found.length || !active) return;
+
+      setQueue((current) => [...current, ...found]);
+      const audio = audioRef.current;
+      if (audio) {
+        audio.currentTime = 0;
+        void audio.play().then(() => setSoundBlocked(false)).catch(() => setSoundBlocked(true));
+      }
+    }
+
+    async function fetchAppointment(id: string) {
+      if (!active || seenIdsRef.current.has(id)) return;
+      try {
+        const response = await fetch(`/api/admin/appointments/recent?id=${encodeURIComponent(id)}`, { cache: "no-store" });
+        if (!response.ok) return;
+        const result = await response.json() as { appointment?: NewAppointment };
+        if (active && result.appointment) enqueueAppointments([result.appointment]);
+      } catch {
+        // A reconnect catch-up will retry missed inserts.
+      }
+    }
+
+    async function syncRecent() {
+      if (!active || !subscribed || !lastCheckedAtRef.current) return;
+      if (syncing) {
+        syncAgain = true;
+        return;
+      }
+
+      syncing = true;
+      try {
+        const result = await fetchRecent(lastCheckedAtRef.current);
+        if (!active || !result) return;
+        enqueueAppointments(result.appointments);
+        lastCheckedAtRef.current = result.checkedAt;
+      } finally {
+        syncing = false;
+        if (active && syncAgain) {
+          syncAgain = false;
+          void syncRecent();
+        }
+      }
+    }
+
+    async function startSubscription() {
+      const initial = await fetchRecent();
+      if (!active) return;
+
+      const initialCursor = initial?.checkedAt || new Date().toISOString();
+      lastCheckedAtRef.current = initialCursor;
+      initial?.appointments.forEach((item) => {
+        if (new Date(item.createdAt).getTime() <= new Date(initialCursor).getTime()) {
+          seenIdsRef.current.add(item.id);
+        }
+      });
+
+      channel = supabase
+        .channel("dashboard-new-appointments")
+        .on("postgres_changes", {
+          event: "INSERT",
+          schema: "public",
+          table: "agendamentos",
+        }, (payload) => {
+          const id = payload.new.id;
+          if (typeof id === "string") void fetchAppointment(id);
+        })
+        .subscribe((status) => {
+          subscribed = status === "SUBSCRIBED";
+          if (subscribed) void syncRecent();
+        });
+    }
+
+    void startSubscription();
     return () => {
       active = false;
-      if (timeoutId !== undefined) clearTimeout(timeoutId);
+      if (channel) void supabase.removeChannel(channel);
       audio.pause();
       audioRef.current = null;
     };
