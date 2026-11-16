@@ -35,6 +35,7 @@ function formatDate(isoDate: string) {
 function statusLabel(status?: string) {
   switch (status) {
     case "pendente": return "Aguardando confirmação";
+    case "confirmado": return "Agendamento confirmado";
     case "em_andamento": return "Em andamento";
     case "concluido": return "Concluído";
     case "cancelado": return "Cancelado";

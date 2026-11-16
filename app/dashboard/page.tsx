@@ -25,7 +25,7 @@ import DashboardActions from "./dashboard-actions";
 import AppointmentNotification from "./appointment-notification";
 
 type Period = "Hoje" | "Semana" | "Mês";
-type AppointmentStatus = "pending" | "progress" | "done";
+type AppointmentStatus = "pending" | "confirmed" | "progress" | "done";
 
 type Appointment = {
   id: string;
@@ -127,11 +127,11 @@ function RevenueChart({ period, revenue, trend, series }: { period: Period; reve
 
 export default function DashboardPage() {
   const [period, setPeriod] = useState<Period>("Semana");
-  const [appointmentStatus, setAppointmentStatus] = useState<AppointmentStatus>("progress");
+  const [appointmentStatus, setAppointmentStatus] = useState<AppointmentStatus>("pending");
   const [metrics, setMetrics] = useState<Metrics>(zeroMetrics);
   const [revenueSeries, setRevenueSeries] = useState<RevenuePoint[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [appointmentCounts, setAppointmentCounts] = useState<Record<AppointmentStatus, number>>({ pending: 0, progress: 0, done: 0 });
+  const [appointmentCounts, setAppointmentCounts] = useState<Record<AppointmentStatus, number>>({ pending: 0, confirmed: 0, progress: 0, done: 0 });
   const [companyName, setCompanyName] = useState("Auto CT");
   const [isLoading, setIsLoading] = useState(true);
   const [apiError, setApiError] = useState("");
@@ -158,7 +158,7 @@ export default function DashboardPage() {
         setMetrics(result.metrics ?? zeroMetrics);
         setRevenueSeries(result.revenueSeries ?? []);
         setAppointments(result.appointments ?? []);
-        setAppointmentCounts(result.appointmentCounts ?? { pending: 0, progress: 0, done: 0 });
+        setAppointmentCounts(result.appointmentCounts ?? { pending: 0, confirmed: 0, progress: 0, done: 0 });
       } catch (error) {
         if (active) setApiError(error instanceof Error ? error.message : "Não foi possível carregar o painel.");
       } finally {
@@ -172,18 +172,19 @@ export default function DashboardPage() {
   const selectedMetrics = metrics;
   const visibleAppointments = appointments.filter((appointment) => appointment.status === appointmentStatus);
   const appointmentTabs: { id: AppointmentStatus; label: string; count: number; Icon: typeof Clock3 }[] = [
-    { id: "pending", label: "Pendente", count: appointmentCounts.pending, Icon: Clock3 },
+    { id: "pending", label: "Solicitações", count: appointmentCounts.pending, Icon: Clock3 },
+    { id: "confirmed", label: "Confirmados", count: appointmentCounts.confirmed, Icon: CheckCircle2 },
     { id: "progress", label: "Em andamento", count: appointmentCounts.progress, Icon: Play },
     { id: "done", label: "Concluído", count: appointmentCounts.done, Icon: CheckCircle2 },
   ];
 
-  async function completeAppointment(id: string) {
+  async function updateAppointmentStatus(id: string, status: "confirmado" | "em_andamento" | "concluido") {
     setApiError("");
     try {
       const response = await fetch("/api/admin/overview", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, status: "concluido" }),
+        body: JSON.stringify({ id, status }),
       });
       const result = await response.json() as { message?: string };
       if (!response.ok) throw new Error(result.message || "Não foi possível atualizar o agendamento.");
@@ -311,7 +312,7 @@ export default function DashboardPage() {
                   {visibleAppointments.map((appointment, index) => (
                     <article className={styles.appointmentRow} key={appointment.id}>
                       <div className={styles.appointmentTime}>
-                        <span className={styles.playCircle}>{appointment.status === "done" ? <Check /> : <Play />}</span>
+                        <span className={styles.playCircle}>{appointment.status === "done" || appointment.status === "confirmed" ? <Check /> : <Play />}</span>
                         <strong>{appointment.time}</strong>
                       </div>
                       <div className={styles.customerInfo}><strong>{appointment.customer}</strong><span>{appointment.vehicle}</span></div>
@@ -319,8 +320,13 @@ export default function DashboardPage() {
                       {appointment.status === "done" ? (
                         <span className={styles.doneLabel}><Check />Concluído</span>
                       ) : (
-                        <button type="button" className={index === 0 ? styles.completePrimary : styles.completeButton} onClick={() => completeAppointment(appointment.id)}>
-                          Concluir<Check aria-hidden="true" />
+                        <button
+                          type="button"
+                          className={index === 0 ? styles.completePrimary : styles.completeButton}
+                          onClick={() => updateAppointmentStatus(appointment.id, appointment.status === "pending" ? "confirmado" : appointment.status === "confirmed" ? "em_andamento" : "concluido")}
+                        >
+                          {appointment.status === "pending" ? "Confirmar" : appointment.status === "confirmed" ? "Iniciar" : "Concluir"}
+                          <Check aria-hidden="true" />
                         </button>
                       )}
                     </article>

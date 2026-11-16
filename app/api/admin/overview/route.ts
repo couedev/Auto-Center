@@ -2,7 +2,7 @@ import { getLocalDateTime, getPeriodRange, type DashboardPeriod } from "@/lib/da
 import { apiJson, getAdminContext } from "@/lib/supabase/admin";
 
 type OrderRow = { valor_total: number | string; pago_em: string | null };
-type AppointmentRow = { id: string; data_inicio: string; veiculo: string; placa: string | null; status: string; pedidos: { nome_contato: string; pedido_itens: { nome_item: string }[] } | null };
+type AppointmentRow = { id: string; data_inicio: string; veiculo: string; placa: string | null; status: string; pedidos: { nome_contato: string; status: string; pedido_itens: { nome_item: string }[] } | null };
 
 const validPeriods: DashboardPeriod[] = ["Hoje", "Semana", "Mês"];
 
@@ -71,17 +71,33 @@ export async function GET(request: Request) {
       return query;
     };
 
-    const [ordersResult, previousOrdersResult, appointmentsResult, completedResult, progressResult, previousAppointmentsResult, previousCompletedResult, agendaResult] = await Promise.all([
+    const requestCounts = (orderStatus: "pendente" | "confirmado") =>
+      context.supabase
+        .from("agendamentos")
+        .select("id,pedidos!inner(status)", { count: "exact", head: true })
+        .eq("status", "pendente")
+        .eq("pedidos.status", orderStatus);
+
+    const [ordersResult, previousOrdersResult, appointmentsResult, completedResult, progressResult, pendingRequestsResult, confirmedRequestsResult, previousAppointmentsResult, previousCompletedResult, requestsAgendaResult, agendaResult] = await Promise.all([
       paidOrders(range.start, range.end),
       paidOrders(range.previousStart, range.previousEnd),
       appointmentCounts(range.start, range.end),
       appointmentCounts(range.start, range.end, "concluido"),
       appointmentCounts(range.start, range.end, "em_andamento"),
+      requestCounts("pendente"),
+      requestCounts("confirmado"),
       appointmentCounts(range.previousStart, range.previousEnd),
       appointmentCounts(range.previousStart, range.previousEnd, "concluido"),
       context.supabase
         .from("agendamentos")
-        .select("id,data_inicio,veiculo,placa,status,pedidos!inner(nome_contato,pedido_itens(nome_item))")
+        .select("id,data_inicio,veiculo,placa,status,pedidos!inner(nome_contato,status,pedido_itens(nome_item))")
+        .eq("status", "pendente")
+        .in("pedidos.status", ["pendente", "confirmado"])
+        .order("criado_em", { ascending: false })
+        .limit(30),
+      context.supabase
+        .from("agendamentos")
+        .select("id,data_inicio,veiculo,placa,status,pedidos!inner(nome_contato,status,pedido_itens(nome_item))")
         .gte("data_inicio", range.start.toISOString())
         .lt("data_inicio", range.end.toISOString())
         .neq("status", "cancelado")
@@ -89,7 +105,7 @@ export async function GET(request: Request) {
         .limit(20),
     ]);
 
-    const queryErrors = [ordersResult.error, previousOrdersResult.error, appointmentsResult.error, completedResult.error, progressResult.error, previousAppointmentsResult.error, previousCompletedResult.error, agendaResult.error];
+    const queryErrors = [ordersResult.error, previousOrdersResult.error, appointmentsResult.error, completedResult.error, progressResult.error, pendingRequestsResult.error, confirmedRequestsResult.error, previousAppointmentsResult.error, previousCompletedResult.error, requestsAgendaResult.error, agendaResult.error];
     if (queryErrors.some(Boolean)) {
       return apiJson({ message: "Não foi possível carregar as informações do painel. Tente novamente em instantes." }, 503);
     }
@@ -113,14 +129,26 @@ export async function GET(request: Request) {
       revenueSeries[index].amount += Number(order.valor_total || 0);
     }
 
-    const appointments = ((agendaResult.data ?? []) as unknown as AppointmentRow[]).map((appointment) => {
+    const agendaRows = new Map<string, AppointmentRow>();
+    for (const appointment of [
+      ...((requestsAgendaResult.data ?? []) as unknown as AppointmentRow[]),
+      ...((agendaResult.data ?? []) as unknown as AppointmentRow[]),
+    ]) agendaRows.set(appointment.id, appointment);
+
+    const appointments = [...agendaRows.values()].sort((a, b) => Date.parse(a.data_inicio) - Date.parse(b.data_inicio)).map((appointment) => {
       const order = getRelation(appointment.pedidos);
       const items = order?.pedido_itens?.map((item) => item.nome_item) ?? [];
       const service = items.join(", ") || "Serviço";
-      const status = appointment.status === "concluido" ? "done" : appointment.status === "em_andamento" ? "progress" : "pending";
+      const status = appointment.status === "concluido"
+        ? "done"
+        : appointment.status === "em_andamento"
+          ? "progress"
+          : order?.status === "confirmado" ? "confirmed" : "pending";
+      const appointmentDate = new Date(appointment.data_inicio);
+      const isInSelectedDay = appointmentDate >= range.start && appointmentDate < range.end;
       const timeOptions: Intl.DateTimeFormatOptions = {
         timeZone,
-        ...(period === "Hoje" ? {} : { day: "2-digit", month: "2-digit" }),
+        ...(period === "Hoje" && isInSelectedDay ? {} : { day: "2-digit", month: "2-digit" }),
         hour: "2-digit",
         minute: "2-digit",
         hourCycle: "h23",
@@ -152,7 +180,8 @@ export async function GET(request: Request) {
       revenueSeries,
       appointments,
       appointmentCounts: {
-        pending: Math.max(currentAppointments - currentCompleted - currentProgress, 0),
+        pending: pendingRequestsResult.count ?? 0,
+        confirmed: confirmedRequestsResult.count ?? 0,
         progress: currentProgress,
         done: currentCompleted,
       },
@@ -178,11 +207,61 @@ export async function PATCH(request: Request) {
   }
   const body = payload as { id?: unknown; status?: unknown };
 
-  if (typeof body.id !== "string" || !/^[0-9a-f-]{36}$/i.test(body.id) || !["em_andamento", "concluido"].includes(String(body.status))) {
+  if (typeof body.id !== "string" || !/^[0-9a-f-]{36}$/i.test(body.id) || !["confirmado", "em_andamento", "concluido"].includes(String(body.status))) {
     return apiJson({ message: "Dados do agendamento inválidos." }, 400);
   }
 
   try {
+    const { data: appointment, error: appointmentError } = await context.supabase
+      .from("agendamentos")
+      .select("id,pedido_id,status")
+      .eq("id", body.id)
+      .neq("status", "cancelado")
+      .maybeSingle();
+
+    if (appointmentError) return apiJson({ message: "Não foi possível carregar o agendamento." }, 503);
+    if (!appointment) return apiJson({ message: "Agendamento não encontrado." }, 404);
+
+    if (body.status === "confirmado") {
+      if (appointment.status !== "pendente") return apiJson({ message: "Este agendamento não pode mais ser confirmado." }, 409);
+
+      const { data: order, error: orderError } = await context.supabase
+        .from("pedidos")
+        .select("status")
+        .eq("id", appointment.pedido_id)
+        .maybeSingle();
+      if (orderError) return apiJson({ message: "Não foi possível confirmar o agendamento." }, 503);
+      if (order?.status === "confirmado") return apiJson({ ok: true });
+      if (order?.status !== "pendente") return apiJson({ message: "Este pedido não pode mais ser confirmado." }, 409);
+
+      const { data, error } = await context.supabase
+        .from("pedidos")
+        .update({ status: "confirmado" })
+        .eq("id", appointment.pedido_id)
+        .eq("status", "pendente")
+        .select("id")
+        .maybeSingle();
+
+      if (error) return apiJson({ message: "Não foi possível confirmar o agendamento." }, 503);
+      if (!data) return apiJson({ message: "O pedido foi atualizado em outra sessão. Atualize o painel." }, 409);
+      return apiJson({ ok: true });
+    }
+
+    if (body.status === "em_andamento") {
+      if (appointment.status !== "pendente") return apiJson({ message: "Este agendamento não pode ser iniciado." }, 409);
+      const { data: order, error: orderError } = await context.supabase
+        .from("pedidos")
+        .select("status")
+        .eq("id", appointment.pedido_id)
+        .maybeSingle();
+      if (orderError) return apiJson({ message: "Não foi possível iniciar o serviço." }, 503);
+      if (order?.status !== "confirmado") return apiJson({ message: "Confirme o agendamento antes de iniciar o serviço." }, 409);
+    }
+
+    if (body.status === "concluido" && appointment.status !== "em_andamento") {
+      return apiJson({ message: "Inicie o serviço antes de concluí-lo." }, 409);
+    }
+
     const { data, error } = await context.supabase
       .from("agendamentos")
       .update({ status: body.status as "em_andamento" | "concluido" })

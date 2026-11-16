@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3 } from "lucide-react";
+import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, X } from "lucide-react";
 import MobileTabBar from "../mobile-tab-bar";
 import { formatPrice, mapCatalogService } from "../services";
 import type { Service } from "../services";
@@ -68,6 +68,9 @@ export default function BookingPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState<BookingResult | null>(null);
   const [whatsapp, setWhatsapp] = useState<WhatsAppInfo>({ enabled: false, number: null });
+  const trackedBookingId = success?.id;
+  const trackedBookingToken = success?.token;
+  const trackedBookingStatus = success?.status;
 
   useEffect(() => {
     let active = true;
@@ -140,6 +143,41 @@ export default function BookingPage() {
     void loadAvailability();
     return () => { active = false; };
   }, [service, selectedDate]);
+
+  useEffect(() => {
+    if (!trackedBookingId || !trackedBookingToken || ["concluido", "cancelado"].includes(trackedBookingStatus ?? "")) return;
+    let active = true;
+    let loading = false;
+
+    async function refreshBookingStatus() {
+      if (loading) return;
+      loading = true;
+      try {
+        const response = await fetch("/api/app/bookings/lookup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+          body: JSON.stringify({ bookings: [{ id: trackedBookingId, token: trackedBookingToken }] }),
+        });
+        if (!response.ok) return;
+        const result = await response.json() as { appointments?: { id: string; status?: string }[] };
+        const current = result.appointments?.find((appointment) => appointment.id === trackedBookingId);
+        if (!active || !current?.status) return;
+        setSuccess((value) => value?.id === trackedBookingId ? { ...value, status: current.status! } : value);
+      } catch {
+        // O acompanhamento tenta novamente no próximo ciclo.
+      } finally {
+        loading = false;
+      }
+    }
+
+    void refreshBookingStatus();
+    const interval = window.setInterval(() => void refreshBookingStatus(), 30_000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [trackedBookingId, trackedBookingToken, trackedBookingStatus]);
 
   if (!now.date) {
     return (
@@ -244,6 +282,71 @@ export default function BookingPage() {
   const whatsappHref = whatsapp.enabled && whatsappDigits
     ? `https://wa.me/${whatsappDigits}?text=${encodeURIComponent(`Olá! Enviei um pedido de agendamento para ${service?.name} no dia ${dateLabel(selectedDate)} às ${selectedTime}.`)}`
     : null;
+
+  if (success) {
+    const statusInfo = success.status === "confirmado"
+      ? { title: "Agendamento confirmado", label: "Confirmado pela unidade", message: "A unidade confirmou seu horário. Esperamos você!" }
+      : success.status === "em_andamento"
+        ? { title: "Serviço em andamento", label: "Atendimento iniciado", message: "Seu veículo já está sendo atendido pela equipe." }
+        : success.status === "concluido"
+          ? { title: "Serviço concluído", label: "Atendimento finalizado", message: "O atendimento foi finalizado. Obrigado por escolher a Auto CT!" }
+          : success.status === "cancelado"
+            ? { title: "Agendamento cancelado", label: "Cancelado", message: "Entre em contato com a unidade se precisar de ajuda." }
+            : { title: "Solicitação enviada", label: "Aguardando confirmação", message: "A unidade recebeu seu pedido e atualizará o status assim que confirmar o horário." };
+
+    return (
+      <div className={styles.canvas}>
+        <main className={styles.app}>
+          <header className={styles.header}>
+            <Link href="/aplicativo" aria-label="Voltar para serviços"><ChevronLeft /></Link>
+            <h1>Agendamento</h1>
+            <span aria-hidden="true" />
+          </header>
+          <span className={styles.headerUnderline} aria-hidden="true" />
+          <div className={styles.content}>
+            <section className={styles.statusScreen} aria-live="polite" aria-labelledby="booking-status-title">
+              <span className={`${styles.statusIcon} ${success.status === "cancelado" ? styles.statusIconCancelled : ""}`}>
+                {success.status === "pendente" ? <Clock3 aria-hidden="true" /> : success.status === "cancelado" ? <X aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}
+              </span>
+              <span className={styles.statusEyebrow}>Status do agendamento</span>
+              <h2 id="booking-status-title">{statusInfo.title}</h2>
+              <span className={`${styles.statusChip} ${success.status === "cancelado" ? styles.statusChipCancelled : ""}`}>{statusInfo.label}</span>
+              <p className={styles.statusMessage}>{statusInfo.message}</p>
+
+              <div className={styles.statusProgress}>
+                <div className={styles.statusProgressLine} />
+                <div className={`${styles.statusStep} ${styles.statusStepDone}`}>
+                  <span><CheckCircle2 aria-hidden="true" /></span>
+                  <div><strong>Solicitação enviada</strong><small>Recebida pela unidade</small></div>
+                </div>
+                <div className={`${styles.statusStep} ${success.status === "pendente" ? styles.statusStepCurrent : success.status === "cancelado" ? styles.statusStepCancelled : styles.statusStepDone}`}>
+                  <span>{success.status === "pendente" ? <Clock3 aria-hidden="true" /> : success.status === "cancelado" ? <X aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}</span>
+                  <div><strong>{success.status === "pendente" ? "Aguardando confirmação" : success.status === "cancelado" ? "Agendamento cancelado" : "Agendamento confirmado"}</strong><small>{success.status === "pendente" ? "A equipe está analisando o pedido" : success.status === "cancelado" ? "Fale com a unidade para mais informações" : "Data e horário confirmados"}</small></div>
+                </div>
+                {success.status === "em_andamento" && <div className={`${styles.statusStep} ${styles.statusStepCurrent}`}><span><Clock3 aria-hidden="true" /></span><div><strong>Serviço em andamento</strong><small>Atendimento iniciado</small></div></div>}
+                {success.status === "concluido" && <div className={`${styles.statusStep} ${styles.statusStepDone}`}><span><CheckCircle2 aria-hidden="true" /></span><div><strong>Serviço concluído</strong><small>Atendimento finalizado</small></div></div>}
+              </div>
+
+              <div className={styles.statusSummary}>
+                <div><span>Serviço</span><strong>{service?.name || "Serviço agendado"}</strong></div>
+                <div><span>Data e horário</span><strong>{dateLabel(selectedDate)} · {selectedTime}</strong></div>
+                <div><span>Veículo</span><strong>{form.vehicle}{form.plate ? ` · ${form.plate}` : ""}</strong></div>
+                <div><span>Valor registrado</span><strong>{formatPrice(success.total)}</strong></div>
+              </div>
+
+              {success.status === "pendente" && <p className={styles.statusAutoUpdate}>Esta tela atualiza o status automaticamente.</p>}
+              <div className={styles.statusActions}>
+                <Link href="/aplicativo/usuario" className={styles.statusProfileLink}>Meus agendamentos</Link>
+                {whatsappHref && <a className={styles.whatsappLink} href={whatsappHref} target="_blank" rel="noreferrer">Continuar pelo WhatsApp</a>}
+                <Link href="/aplicativo" className={styles.statusBackLink}>Voltar aos serviços</Link>
+              </div>
+            </section>
+          </div>
+          <MobileTabBar active="booking" />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.canvas}>

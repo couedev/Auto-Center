@@ -35,7 +35,6 @@ export default function AppointmentNotification() {
     audio.load();
 
     let active = true;
-    let subscribed = false;
     let syncing = false;
     let syncAgain = false;
     let channel: RealtimeChannel | null = null;
@@ -86,7 +85,7 @@ export default function AppointmentNotification() {
     }
 
     async function syncRecent() {
-      if (!active || !subscribed || !lastCheckedAtRef.current) return;
+      if (!active || !lastCheckedAtRef.current) return;
       if (syncing) {
         syncAgain = true;
         return;
@@ -130,14 +129,15 @@ export default function AppointmentNotification() {
           if (typeof id === "string") void fetchAppointment(id);
         })
         .subscribe((status) => {
-          subscribed = status === "SUBSCRIBED";
-          if (subscribed) void syncRecent();
+          if (status === "SUBSCRIBED") void syncRecent();
         });
     }
 
     void startSubscription();
+    const recoveryInterval = window.setInterval(() => void syncRecent(), 15_000);
     return () => {
       active = false;
+      window.clearInterval(recoveryInterval);
       if (channel) void supabase.removeChannel(channel);
       audio.pause();
       audioRef.current = null;

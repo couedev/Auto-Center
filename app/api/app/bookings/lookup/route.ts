@@ -36,7 +36,7 @@ export async function POST(request: Request) {
   const contentLength = Number(request.headers.get("content-length") ?? 0);
   if (contentLength > 8_192) return apiJson({ message: "A solicitação é grande demais." }, 413);
   if (!matchingOrigin(request)) return apiJson({ message: "Origem da solicitação inválida." }, 403);
-  const rate = takeRateLimit(request, "public-booking-lookup", 30, 15 * 60 * 1_000);
+  const rate = takeRateLimit(request, "public-booking-lookup", 60, 15 * 60 * 1_000);
   if (!rate.allowed) {
     return Response.json({ message: "Muitas consultas. Aguarde um pouco e tente novamente." }, {
       status: 429,
@@ -73,6 +73,7 @@ export async function POST(request: Request) {
       if (!data) return { appointment: null, queryFailed: false };
       const item = data as unknown as {
         id: string;
+        status: string;
         pedido_itens?: { nome_item?: string }[];
         agendamentos?: { data_inicio?: string; veiculo?: string; placa?: string | null; status?: string }[]
           | { data_inicio?: string; veiculo?: string; placa?: string | null; status?: string }
@@ -82,6 +83,11 @@ export async function POST(request: Request) {
       if (!appointment?.data_inicio) return { appointment: null, queryFailed: false };
 
       const dateTime = dateTimeInZone(appointment.data_inicio, timeZone);
+      const status = appointment.status === "cancelado" || item.status === "cancelado"
+        ? "cancelado"
+        : appointment.status === "concluido" || appointment.status === "em_andamento"
+          ? appointment.status
+          : item.status === "confirmado" ? "confirmado" : "pendente";
       return { queryFailed: false, appointment: {
         id: item.id,
         serviceName: item.pedido_itens?.[0]?.nome_item ?? "Serviço agendado",
@@ -89,7 +95,7 @@ export async function POST(request: Request) {
         time: dateTime.time,
         vehicle: appointment.veiculo ?? "",
         plate: appointment.placa ?? "",
-        status: appointment.status ?? "pendente",
+        status,
       } };
     }));
 
