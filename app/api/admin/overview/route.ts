@@ -1,7 +1,16 @@
 import { getLocalDateTime, getPeriodRange, type DashboardPeriod } from "@/lib/dashboard/periods";
 import { apiJson, getAdminContext } from "@/lib/supabase/admin";
 
-type OrderRow = { valor_total: number | string; pago_em: string | null };
+type OrderRow = {
+  id: string;
+  valor_total: number | string;
+  pago_em: string | null;
+  agendamentos: { id: string } | { id: string }[] | null;
+};
+type ApprovedServiceRow = {
+  data_inicio: string;
+  pedidos: { id: string; valor_total: number | string } | { id: string; valor_total: number | string }[] | null;
+};
 type AppointmentRow = { id: string; data_inicio: string; veiculo: string; placa: string | null; status: string; pedidos: { nome_contato: string; status: string; pedido_itens: { nome_item: string }[] } | null };
 
 const validPeriods: DashboardPeriod[] = ["Hoje", "Semana", "Mês"];
@@ -33,6 +42,14 @@ function getRelation(value: AppointmentRow["pedidos"] | AppointmentRow["pedidos"
   return Array.isArray(value) ? value[0] ?? null : value;
 }
 
+function getOrderRelation<T>(value: T | T[] | null): T | null {
+  return Array.isArray(value) ? value[0] ?? null : value;
+}
+
+function getServiceRevenue(rows: ApprovedServiceRow[]) {
+  return rows.reduce((sum, row) => sum + Number(getOrderRelation(row.pedidos)?.valor_total || 0), 0);
+}
+
 export async function GET(request: Request) {
   const context = await getAdminContext();
   if (!context.ok) return context.response;
@@ -55,10 +72,17 @@ export async function GET(request: Request) {
 
     const paidOrders = (start: Date, end: Date) => context.supabase
       .from("pedidos")
-      .select("valor_total,pago_em")
+      .select("id,valor_total,pago_em,agendamentos(id)")
       .eq("status_pagamento", "pago")
       .gte("pago_em", start.toISOString())
       .lt("pago_em", end.toISOString());
+
+    const approvedServices = (start: Date, end: Date) => context.supabase
+      .from("agendamentos")
+      .select("data_inicio,pedidos!inner(id,valor_total)")
+      .in("status", ["em_andamento", "concluido"])
+      .gte("data_inicio", start.toISOString())
+      .lt("data_inicio", end.toISOString());
 
     const appointmentCounts = (start: Date, end: Date, status?: string) => {
       let query = context.supabase
@@ -78,9 +102,11 @@ export async function GET(request: Request) {
         .eq("status", "pendente")
         .eq("pedidos.status", orderStatus);
 
-    const [ordersResult, previousOrdersResult, appointmentsResult, completedResult, progressResult, pendingRequestsResult, confirmedRequestsResult, previousAppointmentsResult, previousCompletedResult, requestsAgendaResult, progressAgendaResult, agendaResult] = await Promise.all([
+    const [ordersResult, previousOrdersResult, approvedServicesResult, previousApprovedServicesResult, appointmentsResult, completedResult, progressResult, pendingRequestsResult, confirmedRequestsResult, previousAppointmentsResult, previousCompletedResult, requestsAgendaResult, progressAgendaResult, agendaResult] = await Promise.all([
       paidOrders(range.start, range.end),
       paidOrders(range.previousStart, range.previousEnd),
+      approvedServices(range.start, range.end),
+      approvedServices(range.previousStart, range.previousEnd),
       appointmentCounts(range.start, range.end),
       appointmentCounts(range.start, range.end, "concluido"),
       context.supabase
@@ -114,27 +140,40 @@ export async function GET(request: Request) {
         .limit(20),
     ]);
 
-    const queryErrors = [ordersResult.error, previousOrdersResult.error, appointmentsResult.error, completedResult.error, progressResult.error, pendingRequestsResult.error, confirmedRequestsResult.error, previousAppointmentsResult.error, previousCompletedResult.error, requestsAgendaResult.error, progressAgendaResult.error, agendaResult.error];
+    const queryErrors = [ordersResult.error, previousOrdersResult.error, approvedServicesResult.error, previousApprovedServicesResult.error, appointmentsResult.error, completedResult.error, progressResult.error, pendingRequestsResult.error, confirmedRequestsResult.error, previousAppointmentsResult.error, previousCompletedResult.error, requestsAgendaResult.error, progressAgendaResult.error, agendaResult.error];
     if (queryErrors.some(Boolean)) {
       return apiJson({ message: "Não foi possível carregar as informações do painel. Tente novamente em instantes." }, 503);
     }
 
-    const currentOrders = (ordersResult.data ?? []) as OrderRow[];
-    const previousOrders = (previousOrdersResult.data ?? []) as OrderRow[];
-    const currentRevenue = currentOrders.reduce((sum, order) => sum + Number(order.valor_total || 0), 0);
-    const previousRevenue = previousOrders.reduce((sum, order) => sum + Number(order.valor_total || 0), 0);
+    const currentOrders = (ordersResult.data ?? []) as unknown as OrderRow[];
+    const previousOrders = (previousOrdersResult.data ?? []) as unknown as OrderRow[];
+    const currentApprovedServices = (approvedServicesResult.data ?? []) as unknown as ApprovedServiceRow[];
+    const previousApprovedServices = (previousApprovedServicesResult.data ?? []) as unknown as ApprovedServiceRow[];
+    const currentProductOrders = currentOrders.filter((order) => !getOrderRelation(order.agendamentos));
+    const previousProductOrders = previousOrders.filter((order) => !getOrderRelation(order.agendamentos));
+    const currentRevenue = currentProductOrders.reduce((sum, order) => sum + Number(order.valor_total || 0), 0) + getServiceRevenue(currentApprovedServices);
+    const previousRevenue = previousProductOrders.reduce((sum, order) => sum + Number(order.valor_total || 0), 0) + getServiceRevenue(previousApprovedServices);
     const currentAppointments = appointmentsResult.count ?? 0;
     const previousAppointments = previousAppointmentsResult.count ?? 0;
     const currentCompleted = completedResult.count ?? 0;
     const currentProgress = progressResult.count ?? 0;
     const previousCompleted = previousCompletedResult.count ?? 0;
-    const currentTicket = currentOrders.length ? currentRevenue / currentOrders.length : 0;
-    const previousTicket = previousOrders.length ? previousRevenue / previousOrders.length : 0;
+    const currentOrderCount = currentProductOrders.length + currentApprovedServices.length;
+    const previousOrderCount = previousProductOrders.length + previousApprovedServices.length;
+    const currentTicket = currentOrderCount ? currentRevenue / currentOrderCount : 0;
+    const previousTicket = previousOrderCount ? previousRevenue / previousOrderCount : 0;
     const revenueSeries = chartBuckets(period).map((label) => ({ label, amount: 0 }));
 
-    for (const order of currentOrders) {
+    for (const order of currentProductOrders) {
       if (!order.pago_em) continue;
       const index = bucketIndex(period, new Date(order.pago_em), timeZone, range.localStart);
+      revenueSeries[index].amount += Number(order.valor_total || 0);
+    }
+
+    for (const appointment of currentApprovedServices) {
+      const order = getOrderRelation(appointment.pedidos);
+      if (!order) continue;
+      const index = bucketIndex(period, new Date(appointment.data_inicio), timeZone, range.localStart);
       revenueSeries[index].amount += Number(order.valor_total || 0);
     }
 
