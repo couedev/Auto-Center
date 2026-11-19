@@ -23,6 +23,7 @@ import {
 import styles from "./dashboard.module.css";
 import DashboardActions from "./dashboard-actions";
 import AppointmentNotification from "./appointment-notification";
+import PwaInstallPrompt from "../pwa-install-prompt";
 
 type Period = "Hoje" | "Semana" | "Mês";
 type AppointmentStatus = "pending" | "progress" | "done";
@@ -378,6 +379,7 @@ export default function DashboardPage() {
 
   return (
     <div className={styles.dashboard}>
+      <PwaInstallPrompt kind="admin" />
       <AppointmentNotification onNewAppointment={handleNewAppointment} />
       <div className={styles.honeycombTop} aria-hidden="true" />
       <div className={styles.honeycombBottom} aria-hidden="true" />

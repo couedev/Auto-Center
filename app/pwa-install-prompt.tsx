@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
-import { ArrowDownToLine, ArrowUpFromLine, Bell, CalendarDays, Copy, Tag, X } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Bell, CalendarDays, ChartNoAxesCombined, Copy, Package, Tag, X } from "lucide-react";
 import styles from "./pwa-install-prompt.module.css";
 
 type InstallChoice = { outcome: "accepted" | "dismissed"; platform: string };
@@ -31,7 +31,8 @@ function getPlatform(): Platform {
   return { isAndroid, isIos, isMobile: isAndroid || isIos, isSafari };
 }
 
-export default function PwaInstallPrompt() {
+export default function PwaInstallPrompt({ kind = "client" }: { kind?: "client" | "admin" }) {
+  const isAdmin = kind === "admin";
   const [ready, setReady] = useState(false);
   const [isStandalone, setIsStandalone] = useState(true);
   const [isDismissed, setIsDismissed] = useState(true);
@@ -55,6 +56,7 @@ export default function PwaInstallPrompt() {
     }
 
     function handleBeforeInstallPrompt(event: Event) {
+      if (isAdmin && !getPlatform().isMobile) return;
       event.preventDefault();
       setDeferredPrompt(event as BeforeInstallPromptEvent);
     }
@@ -84,11 +86,11 @@ export default function PwaInstallPrompt() {
       media.removeEventListener?.("change", handleDisplayModeChange);
       if (!media.removeEventListener) media.removeListener?.(handleDisplayModeChange);
     };
-  }, []);
+  }, [isAdmin]);
 
   const canInstall = supportsWebInstall || Boolean(deferredPrompt);
   const shouldShow = ready && !isStandalone && !isDismissed &&
-    (platform.isMobile || canInstall);
+    (isAdmin ? platform.isMobile : platform.isMobile || canInstall);
 
   useEffect(() => {
     if (!shouldShow) return;
@@ -137,7 +139,7 @@ export default function PwaInstallPrompt() {
   }
 
   async function copyAppLink() {
-    const appLink = new URL("/aplicativo", window.location.origin).toString();
+    const appLink = new URL(isAdmin ? "/dashboard" : "/aplicativo", window.location.origin).toString();
     try {
       if (navigator.clipboard) {
         await navigator.clipboard.writeText(appLink);
@@ -166,41 +168,44 @@ export default function PwaInstallPrompt() {
 
   return (
     <div className={styles.backdrop} onMouseDown={(event) => { if (event.target === event.currentTarget) dismissPrompt(); }}>
-      <section className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="install-title">
+      <section className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby={`${kind}-install-title`}>
         <header className={styles.header}>
           <Image
-            src="/assets/Auto%20CT%20transparent%20logo-2.webp"
-            alt="Auto CT Auto Center"
-            width={220}
-            height={110}
+            src={isAdmin ? "/icon/admin/icon-auto-admin-192.png" : "/assets/Auto%20CT%20transparent%20logo-2.webp"}
+            alt={isAdmin ? "Auto CT Admin" : "Auto CT Auto Center"}
+            width={isAdmin ? 64 : 220}
+            height={isAdmin ? 64 : 110}
             priority
-            className={styles.logo}
+            className={isAdmin ? styles.adminIcon : styles.logo}
           />
           <button type="button" className={styles.closeButton} onClick={dismissPrompt} aria-label="Fechar aviso de instalação"><X /></button>
         </header>
 
-        <p className={styles.eyebrow}>APLICATIVO AUTO CT</p>
-        <h2 className={styles.title} id="install-title">Instale o aplicativo <span>Auto CT</span></h2>
+        <p className={styles.eyebrow}>{isAdmin ? "PAINEL ADMINISTRATIVO" : "APLICATIVO AUTO CT"}</p>
+        <h2 className={styles.title} id={`${kind}-install-title`}>Instale o aplicativo <span>{isAdmin ? "Auto CT Admin" : "Auto CT"}</span></h2>
         <p className={styles.description}>
           {showIosGuide
-            ? "Siga os passos abaixo para adicionar o Auto CT à tela inicial."
-            : "Mais praticidade para cuidar do seu veículo, direto da tela inicial do celular."}
+            ? `Siga os passos abaixo para adicionar o ${isAdmin ? "Auto CT Admin" : "Auto CT"} à tela inicial.`
+            : isAdmin
+              ? "Acompanhe a operação da Auto CT direto da tela inicial do celular."
+              : "Mais praticidade para cuidar do seu veículo, direto da tela inicial do celular."}
         </p>
 
         {!showIosGuide && (
           <ul className={styles.features}>
-            <li>
-              <span className={styles.featureIcon}><CalendarDays aria-hidden="true" /></span>
-              <span><strong>Agende seu serviço</strong><small>Escolha o dia e o horário ideal.</small></span>
-            </li>
-            <li>
-              <span className={styles.featureIcon}><Tag aria-hidden="true" /></span>
-              <span><strong>Confira serviços e preços</strong><small>Veja as opções disponíveis na unidade.</small></span>
-            </li>
-            <li>
-              <span className={styles.featureIcon}><Bell aria-hidden="true" /></span>
-              <span><strong>Acompanhe seus agendamentos</strong><small>Consulte os pedidos direto no seu perfil.</small></span>
-            </li>
+            {isAdmin ? (
+              <>
+                <li><span className={styles.featureIcon}><ChartNoAxesCombined aria-hidden="true" /></span><span><strong>Veja o faturamento</strong><small>Acompanhe os resultados do negócio.</small></span></li>
+                <li><span className={styles.featureIcon}><CalendarDays aria-hidden="true" /></span><span><strong>Gerencie agendamentos</strong><small>Atenda solicitações e acompanhe serviços.</small></span></li>
+                <li><span className={styles.featureIcon}><Package aria-hidden="true" /></span><span><strong>Organize o catálogo</strong><small>Atualize produtos e serviços.</small></span></li>
+              </>
+            ) : (
+              <>
+                <li><span className={styles.featureIcon}><CalendarDays aria-hidden="true" /></span><span><strong>Agende seu serviço</strong><small>Escolha o dia e o horário ideal.</small></span></li>
+                <li><span className={styles.featureIcon}><Tag aria-hidden="true" /></span><span><strong>Confira serviços e preços</strong><small>Veja as opções disponíveis na unidade.</small></span></li>
+                <li><span className={styles.featureIcon}><Bell aria-hidden="true" /></span><span><strong>Acompanhe seus agendamentos</strong><small>Consulte os pedidos direto no seu perfil.</small></span></li>
+              </>
+            )}
           </ul>
         )}
 

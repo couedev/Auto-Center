@@ -1,0 +1,27 @@
+{
+  "id": "/dashboard",
+  "name": "Auto CT Administração",
+  "short_name": "Auto CT Admin",
+  "description": "Acompanhe faturamento, agendamentos e serviços do Auto CT.",
+  "lang": "pt-BR",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#050605",
+  "theme_color": "#10130e",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/icon/admin/icon-auto-admin-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon/admin/icon-auto-admin-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
