@@ -16,13 +16,16 @@ type NewAppointment = {
   amount: number;
 };
 type RecentAppointmentsResult = { checkedAt: string; appointments: NewAppointment[] };
+type AppointmentNotificationProps = { onNewAppointment?: () => void };
 
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
-export default function AppointmentNotification() {
+export default function AppointmentNotification({ onNewAppointment }: AppointmentNotificationProps) {
   const [queue, setQueue] = useState<NewAppointment[]>([]);
   const [soundBlocked, setSoundBlocked] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const onNewAppointmentRef = useRef(onNewAppointment);
+  onNewAppointmentRef.current = onNewAppointment;
   const lastCheckedAtRef = useRef<string | null>(null);
   const seenIdsRef = useRef(new Set<string>());
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -65,6 +68,7 @@ export default function AppointmentNotification() {
       if (!found.length || !active) return;
 
       setQueue((current) => [...current, ...found]);
+      onNewAppointmentRef.current?.();
       const audio = audioRef.current;
       if (audio) {
         audio.currentTime = 0;

@@ -61,7 +61,7 @@
 .bookingForm { margin-top: 22px; padding-top: 16px; display: grid; gap: 12px; border-top: 1px solid #e3e6e2; }
 .bookingForm > label { display: grid; gap: 6px; color: #293329; font-size: 12px; font-weight: 700; }
 .bookingForm > label > span { display: inline; color: #697166; font-weight: 500; }
-.bookingForm input { width: 100%; min-height: 43px; padding: 0 11px; border: 1px solid #d5ddd3; border-radius: 10px; outline: 0; color: #121812; background: #fff; font: inherit; font-size: 14px; font-weight: 400; }
+.bookingForm input { width: 100%; min-height: 43px; padding: 0 11px; border: 1px solid #d5ddd3; border-radius: 10px; outline: 0; color: #121812; background: #fff; font: inherit; font-size: 16px; font-weight: 400; }
 .bookingForm input:focus { border-color: #82d600; box-shadow: 0 0 0 3px rgba(139, 234, 0, .12); }
 .honeypot { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
 .turnstile { min-height: 65px; display: flex; justify-content: center; }
@@ -80,6 +80,24 @@
 .emptyState p { margin: 0 0 10px; }
 .emptyState a { color: #368c00; font-weight: 750; text-decoration: none; }
 .error { color: #b32727; }
+
+.serviceThumb.skeletonThumb { background: #e7ebe5; }
+.bookingSkeleton { display: grid; gap: 0; }
+.skeletonServiceInfo { min-width: 0; display: grid; align-content: center; justify-items: start; gap: 9px; }
+.skeletonServiceTitle { width: min(100%, 145px); height: 17px; border-radius: 7px; }
+.skeletonServiceDescription { width: min(100%, 175px); height: 10px; border-radius: 6px; }
+.skeletonServicePrice { width: 74px; height: 20px; border-radius: 7px; }
+.skeletonSectionTitle { width: 135px; height: 15px; border-radius: 7px; }
+.skeletonMonth { width: 84px; height: 11px; margin-left: auto; border-radius: 6px; }
+.skeletonWeekdays span { display: grid; justify-items: center; }
+.skeletonWeekdays i { width: 17px; height: 8px; display: block; border-radius: 5px; }
+.skeletonDate { width: 100%; height: 48px; border-radius: 11px; }
+.skeletonTime { min-height: 49px; border: 1px solid #e0e5de; border-radius: 11px; }
+.skeletonSummaryLine { width: 80%; height: 14px; align-self: center; border-radius: 6px; }
+.skeletonField { display: grid; gap: 6px; }
+.skeletonFieldLabel { width: 35%; height: 10px; border-radius: 5px; }
+.skeletonFieldInput { width: 100%; height: 43px; border: 1px solid #e0e5de; border-radius: 10px; }
+.skeletonSubmit { width: 100%; height: 50px; margin-top: 12px; border-radius: 13px; }
 
 .statusScreen { padding: 20px 16px 24px; display: grid; justify-items: center; border: 1px solid #dce5d6; border-radius: 19px; background: radial-gradient(circle at 50% 0, rgba(172, 239, 71, .16), transparent 40%), linear-gradient(180deg, #fff, #f8faf7); box-shadow: 0 8px 26px rgba(48, 72, 32, .07); text-align: center; }
 .statusIcon { width: 67px; height: 67px; display: grid; place-items: center; border: 1px solid #c4e996; border-radius: 50%; color: #438d00; background: linear-gradient(180deg, #f3fbe8, #e5f5ce); box-shadow: 0 0 0 7px rgba(152, 220, 47, .08); }

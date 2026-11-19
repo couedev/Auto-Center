@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import MobileTabBar from "../mobile-tab-bar";
 import { getServiceAppearance } from "../services";
+import skeleton from "../skeleton.module.css";
 import styles from "./user.module.css";
 
 type Profile = { name: string; email: string; phone: string };
@@ -159,7 +160,23 @@ export default function UserPage() {
           <section className={styles.appointments} aria-labelledby="appointments-title">
             <h2 id="appointments-title" className={styles.sectionTitle}>Meus agendamentos</h2>
             {appointmentsLoading ? (
-              <div className={styles.emptyAppointments} role="status"><CalendarDays aria-hidden="true" /><p>Carregando seus agendamentos...</p></div>
+              <>
+                <p className={skeleton.srOnly} role="status">Carregando seus agendamentos...</p>
+                <div className={styles.appointmentList} aria-hidden="true">
+                  {[0, 1].map((item) => (
+                    <article className={styles.appointmentCard} key={item}>
+                      <span className={`${styles.appointmentThumb} ${styles.skeletonThumb} ${skeleton.skeleton}`} />
+                      <div className={styles.skeletonAppointmentInfo}>
+                        <span className={`${styles.skeletonServiceName} ${skeleton.skeleton}`} />
+                        <span className={`${styles.skeletonDetailLine} ${skeleton.skeleton}`} />
+                        <span className={`${styles.skeletonDetailLine} ${styles.skeletonDetailShort} ${skeleton.skeleton}`} />
+                        <span className={`${styles.skeletonDetailLine} ${styles.skeletonDetailShorter} ${skeleton.skeleton}`} />
+                      </div>
+                      <span className={`${styles.skeletonStatus} ${skeleton.skeleton}`} />
+                    </article>
+                  ))}
+                </div>
+              </>
             ) : appointmentsError ? (
               <div className={styles.emptyAppointments} role="alert"><CalendarDays aria-hidden="true" /><p>{appointmentsError}</p><Link href="/aplicativo">Voltar ao início</Link></div>
             ) : visibleAppointments.length ? (

@@ -7,6 +7,7 @@ import MobileTabBar from "./mobile-tab-bar";
 import { formatPrice, mapCatalogService } from "./services";
 import type { Service } from "./services";
 import styles from "./home.module.css";
+import skeleton from "./skeleton.module.css";
 
 export default function ApplicationHomePage() {
   const router = useRouter();
@@ -70,7 +71,21 @@ export default function ApplicationHomePage() {
           <section className={styles.servicesSection} aria-labelledby="services-title">
             <h2 id="services-title">Nossos serviços</h2>
             {loading ? (
-              <p className={styles.loadMessage} role="status">Carregando serviços...</p>
+              <>
+                <p className={skeleton.srOnly} role="status">Carregando serviços...</p>
+                <div className={styles.serviceList} aria-hidden="true">
+                  {[0, 1, 2].map((item) => (
+                    <article className={styles.serviceCard} key={item}>
+                      <span className={`${styles.serviceThumb} ${styles.skeletonThumb} ${skeleton.skeleton}`} />
+                      <div className={styles.skeletonServiceInfo}>
+                        <span className={`${styles.skeletonName} ${skeleton.skeleton}`} />
+                        <span className={`${styles.skeletonPrice} ${skeleton.skeleton}`} />
+                      </div>
+                      <span className={`${styles.skeletonBookButton} ${skeleton.skeleton}`} />
+                    </article>
+                  ))}
+                </div>
+              </>
             ) : error ? (
               <div className={styles.loadError} role="alert">
                 <p>{error}</p>

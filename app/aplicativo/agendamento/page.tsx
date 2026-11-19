@@ -8,6 +8,7 @@ import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3 } from "l
 import MobileTabBar from "../mobile-tab-bar";
 import { formatPrice, mapCatalogService } from "../services";
 import type { Service } from "../services";
+import skeleton from "../skeleton.module.css";
 import TurnstileWidget from "../turnstile-widget";
 import styles from "./booking.module.css";
 
@@ -50,6 +51,67 @@ function isStoredProfile(value: unknown): value is Partial<BookingForm> {
   return Boolean(value && typeof value === "object");
 }
 
+function BookingSkeleton() {
+  return (
+    <>
+      <p className={skeleton.srOnly} role="status">Carregando dados do agendamento...</p>
+      <div className={styles.bookingSkeleton} aria-hidden="true">
+        <section className={styles.serviceCard}>
+          <span className={`${styles.serviceThumb} ${styles.skeletonThumb} ${skeleton.skeleton}`} />
+          <div className={styles.skeletonServiceInfo}>
+            <span className={`${styles.skeletonServiceTitle} ${skeleton.skeleton}`} />
+            <span className={`${styles.skeletonServiceDescription} ${skeleton.skeleton}`} />
+            <span className={`${styles.skeletonServicePrice} ${skeleton.skeleton}`} />
+          </div>
+        </section>
+
+        <section className={styles.dateSection}>
+          <div className={styles.stepHeading}>
+            <span className={styles.stepNumber}>1</span>
+            <span className={`${styles.skeletonSectionTitle} ${skeleton.skeleton}`} />
+            <span className={`${styles.skeletonMonth} ${skeleton.skeleton}`} />
+          </div>
+          <div className={`${styles.weekdays} ${styles.skeletonWeekdays}`}>
+            {weekdays.map((day) => <span key={day}><i className={skeleton.skeleton} /></span>)}
+          </div>
+          <div className={styles.dates}>
+            {Array.from({ length: 7 }, (_, index) => <span key={index} className={`${styles.skeletonDate} ${skeleton.skeleton}`} />)}
+          </div>
+        </section>
+
+        <section className={styles.timeSection}>
+          <div className={styles.stepHeading}>
+            <span className={styles.stepNumber}>2</span>
+            <span className={`${styles.skeletonSectionTitle} ${skeleton.skeleton}`} />
+          </div>
+          <div className={styles.timeSlots}>
+            {Array.from({ length: 8 }, (_, index) => <span key={index} className={`${styles.skeletonTime} ${skeleton.skeleton}`} />)}
+          </div>
+        </section>
+
+        <section className={styles.summary}>
+          <span className={`${styles.skeletonSummaryLine} ${skeleton.skeleton}`} />
+          <span className={`${styles.skeletonSummaryLine} ${skeleton.skeleton}`} />
+        </section>
+
+        <section className={styles.bookingForm}>
+          <div className={styles.stepHeading}>
+            <span className={styles.stepNumber}>3</span>
+            <span className={`${styles.skeletonSectionTitle} ${skeleton.skeleton}`} />
+          </div>
+          {Array.from({ length: 4 }, (_, index) => (
+            <div className={styles.skeletonField} key={index}>
+              <span className={`${styles.skeletonFieldLabel} ${skeleton.skeleton}`} />
+              <span className={`${styles.skeletonFieldInput} ${skeleton.skeleton}`} />
+            </div>
+          ))}
+          <span className={`${styles.skeletonSubmit} ${skeleton.skeleton}`} />
+        </section>
+      </div>
+    </>
+  );
+}
+
 export default function BookingPage() {
   const router = useRouter();
   const [now, setNow] = useState<TimeParts>({ date: "", time: "" });
@@ -59,7 +121,7 @@ export default function BookingPage() {
   const [visibleWeekStart, setVisibleWeekStart] = useState("");
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
-  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [slotsLoading, setSlotsLoading] = useState(true);
   const [slotsError, setSlotsError] = useState("");
   const [form, setForm] = useState<BookingForm>(emptyForm);
   const [turnstileToken, setTurnstileToken] = useState("");
@@ -150,7 +212,14 @@ export default function BookingPage() {
             <span aria-hidden="true" />
           </header>
           <span className={styles.headerUnderline} aria-hidden="true" />
-          <div className={styles.content} role="status">{catalogError || "Carregando serviços e horários..."}</div>
+          <div className={styles.content}>
+            {catalogError ? (
+              <div className={styles.emptyState} role="alert">
+                <p>{catalogError}</p>
+                <Link href="/aplicativo">Voltar aos serviços</Link>
+              </div>
+            ) : <BookingSkeleton />}
+          </div>
           <MobileTabBar active="booking" />
         </main>
       </div>
@@ -171,6 +240,9 @@ export default function BookingPage() {
   function chooseDate(date: string) {
     setSelectedDate(date);
     setSelectedTime(null);
+    setSlots([]);
+    setSlotsLoading(true);
+    setSlotsError("");
     setError("");
   }
 
@@ -282,7 +354,12 @@ export default function BookingPage() {
               <section className={styles.timeSection} aria-labelledby="time-title">
                 <div className={styles.stepHeading}><span className={styles.stepNumber}>2</span><h2 id="time-title">Escolha o horário</h2></div>
                 {slotsLoading ? (
-                  <p className={styles.slotMessage} role="status">Consultando horários...</p>
+                  <>
+                    <p className={skeleton.srOnly} role="status">Consultando horários disponíveis...</p>
+                    <div className={styles.timeSlots} aria-hidden="true">
+                      {Array.from({ length: 8 }, (_, index) => <span key={index} className={`${styles.skeletonTime} ${skeleton.skeleton}`} />)}
+                    </div>
+                  </>
                 ) : slotsError ? (
                   <p className={styles.inlineError} role="alert">{slotsError}</p>
                 ) : slots.length ? (

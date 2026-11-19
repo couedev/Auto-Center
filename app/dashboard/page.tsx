@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -125,6 +125,86 @@ function RevenueChart({ period, revenue, trend, series }: { period: Period; reve
   );
 }
 
+function DashboardSkeleton() {
+  const metricCards = [0, 1, 2, 3];
+  const bars = [34, 62, 46, 76, 56, 88, 68];
+  const rows = [0, 1, 2];
+
+  return (
+    <div className={styles.skeletonPage}>
+      <p className={styles.srOnly} role="status">Carregando informações do painel...</p>
+      <section className={styles.metrics} aria-hidden="true">
+        {metricCards.map((item) => (
+          <article key={item} className={`${styles.metricCard} ${item === 0 ? styles.metricFeatured : ""}`}>
+            <span className={`${styles.skeletonBlock} ${styles.skeletonIcon}`} />
+            <div className={styles.metricContent}>
+              <span className={`${styles.skeletonBlock} ${styles.skeletonLabel}`} />
+              <span className={`${styles.skeletonBlock} ${styles.skeletonValue}`} />
+              <span className={`${styles.skeletonBlock} ${styles.skeletonMeta}`} />
+            </div>
+          </article>
+        ))}
+      </section>
+
+      <div className={styles.lowerGrid} aria-hidden="true">
+        <section className={`${styles.panel} ${styles.chartPanel} ${styles.skeletonChartPanel}`}>
+          <div className={styles.panelHeading}>
+            <div className={styles.panelTitle}>
+              <span className={`${styles.skeletonBlock} ${styles.skeletonTitleIcon}`} />
+              <span className={`${styles.skeletonBlock} ${styles.skeletonChartTitle}`} />
+            </div>
+            <span className={`${styles.skeletonBlock} ${styles.skeletonRevenue}`} />
+          </div>
+          <div className={styles.chartWrap}>
+            <div className={styles.skeletonYAxis}>
+              {rows.concat([3, 4]).map((item) => <span key={item} className={styles.skeletonBlock} />)}
+            </div>
+            <div className={styles.skeletonPlot}>
+              <div className={styles.skeletonBars}>
+                {bars.map((height, index) => <span key={index} className={styles.skeletonBlock} style={{ height: `${height}%` }} />)}
+              </div>
+              <div className={styles.skeletonAxisLabels}>
+                {bars.map((_, index) => <span key={index} className={styles.skeletonBlock} />)}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className={`${styles.panel} ${styles.agendaPanel} ${styles.skeletonAgendaPanel}`}>
+          <div className={styles.panelHeading}>
+            <div className={styles.panelTitle}>
+              <span className={`${styles.skeletonBlock} ${styles.skeletonTitleIcon}`} />
+              <span className={`${styles.skeletonBlock} ${styles.skeletonAgendaTitle}`} />
+            </div>
+            <span className={`${styles.skeletonBlock} ${styles.skeletonAgendaLink}`} />
+          </div>
+          <div className={styles.appointmentTabs}>
+            {rows.map((item) => <span key={item} className={`${styles.skeletonBlock} ${styles.skeletonTab}`} />)}
+          </div>
+          <div className={styles.appointmentScroller}>
+            <div className={styles.appointmentList}>
+              {rows.map((item) => (
+                <article key={item} className={styles.appointmentRow}>
+                  <div className={`${styles.appointmentTime} ${styles.skeletonAppointmentTime}`}>
+                    <span className={`${styles.skeletonBlock} ${styles.skeletonAppointmentIcon}`} />
+                    <span className={`${styles.skeletonBlock} ${styles.skeletonTime}`} />
+                  </div>
+                  <div className={styles.skeletonCustomer}>
+                    <span className={`${styles.skeletonBlock} ${styles.skeletonCustomerName}`} />
+                    <span className={`${styles.skeletonBlock} ${styles.skeletonVehicle}`} />
+                  </div>
+                  <span className={`${styles.skeletonBlock} ${styles.skeletonService}`} />
+                  <span className={`${styles.skeletonBlock} ${styles.skeletonAction}`} />
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const [period, setPeriod] = useState<Period>("Semana");
   const [appointmentStatus, setAppointmentStatus] = useState<AppointmentStatus>("pending");
@@ -135,39 +215,61 @@ export default function DashboardPage() {
   const [companyName, setCompanyName] = useState("Auto CT");
   const [isLoading, setIsLoading] = useState(true);
   const [apiError, setApiError] = useState("");
-  const [reloadKey, setReloadKey] = useState(0);
+  const [updatingAppointmentId, setUpdatingAppointmentId] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
+  const requestControllerRef = useRef<AbortController | null>(null);
+  const hasLoadedRef = useRef(false);
 
-  useEffect(() => {
-    let active = true;
-    async function loadOverview() {
-      setIsLoading(true);
-      setApiError("");
-      try {
-        const response = await fetch(`/api/admin/overview?period=${encodeURIComponent(period)}`, { cache: "no-store" });
-        const result = await response.json() as {
-          companyName?: string;
-          metrics?: Metrics;
-          revenueSeries?: RevenuePoint[];
-          appointments?: Appointment[];
-          appointmentCounts?: Record<AppointmentStatus, number>;
-          message?: string;
-        };
-        if (!response.ok) throw new Error(result.message || "Não foi possível carregar o painel.");
-        if (!active) return;
-        setCompanyName(result.companyName || "Auto CT");
-        setMetrics(result.metrics ?? zeroMetrics);
-        setRevenueSeries(result.revenueSeries ?? []);
-        setAppointments(result.appointments ?? []);
-        setAppointmentCounts(result.appointmentCounts ?? { pending: 0, progress: 0, done: 0 });
-      } catch (error) {
-        if (active) setApiError(error instanceof Error ? error.message : "Não foi possível carregar o painel.");
-      } finally {
-        if (active) setIsLoading(false);
+  const loadOverview = useCallback(async () => {
+    requestControllerRef.current?.abort();
+    const controller = new AbortController();
+    requestControllerRef.current = controller;
+    const requestId = ++requestIdRef.current;
+    if (!hasLoadedRef.current) setIsLoading(true);
+    setApiError("");
+    try {
+      const response = await fetch(`/api/admin/overview?period=${encodeURIComponent(period)}`, { cache: "no-store", signal: controller.signal });
+      const result = await response.json() as {
+        companyName?: string;
+        metrics?: Metrics;
+        revenueSeries?: RevenuePoint[];
+        appointments?: Appointment[];
+        appointmentCounts?: Record<AppointmentStatus, number>;
+        message?: string;
+      };
+      if (!response.ok) throw new Error(result.message || "Não foi possível carregar o painel.");
+      if (requestId !== requestIdRef.current) return;
+      setCompanyName(result.companyName || "Auto CT");
+      setMetrics(result.metrics ?? zeroMetrics);
+      setRevenueSeries(result.revenueSeries ?? []);
+      setAppointments(result.appointments ?? []);
+      setAppointmentCounts(result.appointmentCounts ?? { pending: 0, progress: 0, done: 0 });
+    } catch (error) {
+      if (requestId === requestIdRef.current) {
+        setApiError(error instanceof Error ? error.message : "Não foi possível carregar o painel.");
+      }
+    } finally {
+      if (requestId === requestIdRef.current) {
+        requestControllerRef.current = null;
+        hasLoadedRef.current = true;
+        setIsLoading(false);
       }
     }
+  }, [period]);
+
+  useEffect(() => {
     void loadOverview();
-    return () => { active = false; };
-  }, [period, reloadKey]);
+    return () => {
+      requestIdRef.current += 1;
+      requestControllerRef.current?.abort();
+      requestControllerRef.current = null;
+    };
+  }, [loadOverview]);
+
+  const handleNewAppointment = useCallback(() => {
+    setAppointmentStatus("pending");
+    void loadOverview();
+  }, [loadOverview]);
 
   const selectedMetrics = metrics;
   const visibleAppointments = appointments.filter((appointment) => appointment.status === appointmentStatus);
@@ -178,6 +280,8 @@ export default function DashboardPage() {
   ];
 
   async function updateAppointmentStatus(id: string, status: "em_andamento" | "concluido") {
+    if (updatingAppointmentId) return;
+    setUpdatingAppointmentId(id);
     setApiError("");
     try {
       const response = await fetch("/api/admin/overview", {
@@ -187,15 +291,27 @@ export default function DashboardPage() {
       });
       const result = await response.json() as { message?: string };
       if (!response.ok) throw new Error(result.message || "Não foi possível atualizar o agendamento.");
-      setReloadKey((value) => value + 1);
+
+      const previousStatus: AppointmentStatus = status === "em_andamento" ? "pending" : "progress";
+      const nextStatus: AppointmentStatus = status === "em_andamento" ? "progress" : "done";
+      setAppointments((current) => current.map((appointment) => appointment.id === id ? { ...appointment, status: nextStatus } : appointment));
+      setAppointmentCounts((current) => ({
+        ...current,
+        [previousStatus]: Math.max(0, current[previousStatus] - 1),
+        [nextStatus]: current[nextStatus] + 1,
+      }));
+      setAppointmentStatus(nextStatus);
+      await loadOverview();
     } catch (error) {
       setApiError(error instanceof Error ? error.message : "Não foi possível atualizar o agendamento.");
+    } finally {
+      setUpdatingAppointmentId(null);
     }
   }
 
   return (
     <div className={styles.dashboard}>
-      <AppointmentNotification />
+      <AppointmentNotification onNewAppointment={handleNewAppointment} />
       <div className={styles.honeycombTop} aria-hidden="true" />
       <div className={styles.honeycombBottom} aria-hidden="true" />
 
@@ -208,7 +324,7 @@ export default function DashboardPage() {
         </nav>
       </aside>
 
-      <main className={styles.main} id="visao-geral">
+      <main className={styles.main} id="visao-geral" aria-busy={isLoading}>
         <div className={styles.content}>
           <header className={styles.topbar}>
             <a className={styles.logoLink} href="#visao-geral" aria-label="Auto CT, visão geral">
@@ -247,7 +363,7 @@ export default function DashboardPage() {
           </section>
 
           {apiError && <p className={styles.dashboardError} role="alert">{apiError}</p>}
-          {isLoading && <p className={styles.dashboardLoading} role="status">Carregando informações...</p>}
+          {isLoading ? <DashboardSkeleton /> : <>
 
           <section className={styles.metrics} aria-label={`Indicadores de ${period.toLowerCase()}`}>
             <article className={`${styles.metricCard} ${styles.metricFeatured}`}>
@@ -322,19 +438,21 @@ export default function DashboardPage() {
                         <button
                           type="button"
                           className={index === 0 ? styles.completePrimary : styles.completeButton}
+                          disabled={updatingAppointmentId !== null}
                           onClick={() => updateAppointmentStatus(appointment.id, appointment.status === "pending" ? "em_andamento" : "concluido")}
                         >
-                          {appointment.status === "pending" ? "Iniciar" : "Concluir"}
-                          {appointment.status === "pending" ? <Play aria-hidden="true" /> : <Check aria-hidden="true" />}
+                          {updatingAppointmentId === appointment.id ? "Salvando..." : appointment.status === "pending" ? "Iniciar" : "Concluir"}
+                          {updatingAppointmentId === appointment.id ? <Clock3 aria-hidden="true" /> : appointment.status === "pending" ? <Play aria-hidden="true" /> : <Check aria-hidden="true" />}
                         </button>
                       )}
                     </article>
                   ))}
-                  {visibleAppointments.length === 0 && <p className={styles.emptyAppointments}>{isLoading ? "Carregando agendamentos..." : "Nenhum agendamento nesta categoria."}</p>}
+                  {visibleAppointments.length === 0 && <p className={styles.emptyAppointments}>Nenhum agendamento nesta categoria.</p>}
                 </div>
               </div>
             </section>
           </div>
+          </>}
         </div>
       </main>
     </div>
