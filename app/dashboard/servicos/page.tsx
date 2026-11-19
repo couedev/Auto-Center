@@ -149,7 +149,7 @@ export default function ServicesPage() {
         </nav>
       </aside>
 
-      <main className={chrome.main}>
+      <main className={chrome.main} aria-busy={isLoading}>
         <div className={chrome.content}>
           <header className={[chrome.topbar, styles.topbar].join(" ")}>
             <Link href="/dashboard" className={[chrome.logoLink, styles.logoLink].join(" ")} aria-label="Auto CT, visão geral">
@@ -166,10 +166,22 @@ export default function ServicesPage() {
             <button className={styles.createButton} type="button" onClick={openNew}><Plus aria-hidden="true" />Cadastrar serviço</button>
           </section>
 
-          <section className={styles.summary} aria-label="Resumo dos serviços">
+          {isLoading && <p className={chrome.srOnly} role="status">Carregando serviços...</p>}
+          <section className={styles.summary} aria-label="Resumo dos serviços" aria-busy={isLoading}>
+            {isLoading ? [0, 1, 2].map((item) => (
+              <article key={item} className={styles.summaryCard} aria-hidden="true">
+                <span className={`${chrome.skeletonBlock} ${styles.skeletonSummaryIcon}`} />
+                <div className={styles.skeletonSummaryContent}>
+                  <span className={`${chrome.skeletonBlock} ${styles.skeletonSummaryLabel}`} />
+                  <span className={`${chrome.skeletonBlock} ${styles.skeletonSummaryValue}`} />
+                  <span className={`${chrome.skeletonBlock} ${styles.skeletonSummaryMeta}`} />
+                </div>
+              </article>
+            )) : <>
             <article className={styles.summaryCard}><Wrench aria-hidden="true" /><div><span>Serviços ativos</span><strong>{activeServices.length}</strong><small>disponíveis no aplicativo</small></div></article>
             <article className={styles.summaryCard}><CalendarClock aria-hidden="true" /><div><span>Serviços cadastrados</span><strong>{services.length}</strong><small>ativos e inativos</small></div></article>
             <article className={styles.summaryCard}><Clock3 aria-hidden="true" /><div><span>Duração média</span><strong>{formatDuration(averageDuration)}</strong><small>entre os serviços ativos</small></div></article>
+            </>}
           </section>
 
           <section className={styles.catalogPanel} aria-label="Lista de serviços">
@@ -183,7 +195,18 @@ export default function ServicesPage() {
             </div>
 
             {pageError && !modalOpen && <p className={styles.error} role="alert">{pageError}</p>}
-            {isLoading && <p className={styles.message} role="status">Carregando serviços...</p>}
+            {isLoading && <div className={styles.tableScroll} aria-hidden="true"><table className={styles.table}>
+              <thead><tr><th>Serviço</th><th>Preço</th><th>Duração</th><th>Status</th><th>Ações</th></tr></thead>
+              <tbody>{[0, 1, 2, 3].map((item) => (
+                <tr key={item}>
+                  <td><div className={styles.serviceName}><span className={`${styles.serviceIcon} ${chrome.skeletonBlock}`} /><div><span className={`${chrome.skeletonBlock} ${styles.skeletonServiceName}`} /><span className={`${chrome.skeletonBlock} ${styles.skeletonServiceDetail}`} /></div></div></td>
+                  <td><span className={`${chrome.skeletonBlock} ${styles.skeletonTableValue}`} /></td>
+                  <td><span className={`${chrome.skeletonBlock} ${styles.skeletonTableValue}`} /></td>
+                  <td><span className={`${chrome.skeletonBlock} ${styles.skeletonTableStatus}`} /></td>
+                  <td><div className={styles.rowActions}><span className={`${chrome.skeletonBlock} ${styles.skeletonTableAction}`} /><span className={`${chrome.skeletonBlock} ${styles.skeletonTableAction}`} /></div></td>
+                </tr>
+              ))}</tbody>
+            </table></div>}
             {!isLoading && !pageError && visibleServices.length === 0 && <div className={styles.emptyState}><Wrench aria-hidden="true" /><strong>{services.length ? "Nenhum serviço encontrado" : "Nenhum serviço cadastrado"}</strong><span>{services.length ? "Tente mudar os filtros ou a busca." : "Cadastre os serviços para que fiquem disponíveis no aplicativo."}</span></div>}
 
             {visibleServices.length > 0 && <div className={styles.tableScroll}>

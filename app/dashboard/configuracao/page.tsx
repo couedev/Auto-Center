@@ -64,6 +64,37 @@ function ThemePreview({ theme, selected }: { theme: Theme; selected: boolean }) 
   );
 }
 
+function LoadingBlock({ className }: { className: string }) {
+  return <span className={`${chrome.skeletonBlock} ${className}`} />;
+}
+
+function SettingsSkeleton() {
+  return <>
+    <p className={chrome.srOnly} role="status">Carregando configurações...</p>
+    <div className={styles.topGrid} aria-hidden="true">
+      <section className={`${styles.card} ${styles.companyCard}`}>
+        <div className={styles.cardHeading}><LoadingBlock className={styles.skeletonHeadingIcon} /><div><LoadingBlock className={styles.skeletonHeadingTitle} /><LoadingBlock className={styles.skeletonHeadingSubtitle} /></div></div>
+        <div className={styles.companyFields}>{[0, 1, 2].map((item) => <div className={styles.skeletonFieldRow} key={item}><LoadingBlock className={styles.skeletonFieldLabel} /><LoadingBlock className={styles.skeletonFieldInput} /></div>)}</div>
+      </section>
+      <section className={styles.card}>
+        <div className={styles.cardHeading}><LoadingBlock className={styles.skeletonHeadingIcon} /><div><LoadingBlock className={styles.skeletonHeadingTitle} /><LoadingBlock className={styles.skeletonHeadingSubtitle} /></div></div>
+        <div className={styles.hoursList}>{[0, 1, 2].map((item) => <div className={styles.hoursRow} key={item}><LoadingBlock className={styles.skeletonHoursLabel} /><LoadingBlock className={styles.skeletonHoursInput} /></div>)}</div>
+      </section>
+    </div>
+    <div className={styles.bottomGrid} aria-hidden="true">
+      <section className={styles.card}>
+        <div className={styles.cardHeading}><LoadingBlock className={styles.skeletonHeadingIcon} /><div><LoadingBlock className={styles.skeletonHeadingTitle} /><LoadingBlock className={styles.skeletonHeadingSubtitle} /></div></div>
+        <div className={styles.preferenceList}>{[0, 1, 2].map((item) => <div className={styles.preferenceRow} key={item}><LoadingBlock className={styles.skeletonPreferenceIcon} /><div><LoadingBlock className={styles.skeletonPreferenceTitle} /><LoadingBlock className={styles.skeletonPreferenceDetail} /></div><LoadingBlock className={styles.skeletonToggle} /></div>)}</div>
+      </section>
+      <section className={styles.card}>
+        <div className={styles.cardHeading}><LoadingBlock className={styles.skeletonHeadingIcon} /><div><LoadingBlock className={styles.skeletonHeadingTitle} /><LoadingBlock className={styles.skeletonHeadingSubtitle} /></div></div>
+        <div className={styles.appearanceContent}><div className={styles.themeChoices}>{[0, 1].map((item) => <div className={styles.skeletonThemeChoice} key={item}><LoadingBlock className={styles.skeletonThemePreview} /><LoadingBlock className={styles.skeletonThemeLabel} /></div>)}</div><div className={styles.accentPicker}><LoadingBlock className={styles.skeletonPreferenceTitle} /><div>{[0, 1, 2, 3, 4].map((item) => <LoadingBlock className={styles.skeletonAccent} key={item} />)}</div></div></div>
+      </section>
+    </div>
+    <div className={styles.saveRow} aria-hidden="true"><LoadingBlock className={styles.skeletonSaveButton} /></div>
+  </>;
+}
+
 export default function SettingsPage() {
   const [values, setValues] = useState(defaultSettings);
   const [savedMessage, setSavedMessage] = useState("");
@@ -74,21 +105,24 @@ export default function SettingsPage() {
   useEffect(() => {
     let active = true;
 
-    try {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const preferences = JSON.parse(stored) as Partial<AutoCenterSettings>;
-        setValues((current) => ({
-          ...current,
-          notifications: preferences.notifications ?? current.notifications,
-          autoConfirm: preferences.autoConfirm ?? current.autoConfirm,
-          theme: preferences.theme ?? current.theme,
-          accent: preferences.accent ?? current.accent,
-        }));
+    queueMicrotask(() => {
+      if (!active) return;
+      try {
+        const stored = window.localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const preferences = JSON.parse(stored) as Partial<AutoCenterSettings>;
+          setValues((current) => ({
+            ...current,
+            notifications: preferences.notifications ?? current.notifications,
+            autoConfirm: preferences.autoConfirm ?? current.autoConfirm,
+            theme: preferences.theme ?? current.theme,
+            accent: preferences.accent ?? current.accent,
+          }));
+        }
+      } catch {
+        // Mantém as preferências iniciais quando o armazenamento local está indisponível.
       }
-    } catch {
-      // Mantém as preferências iniciais quando o armazenamento local está indisponível.
-    }
+    });
 
     async function loadSettings() {
       try {
@@ -203,7 +237,7 @@ export default function SettingsPage() {
         </nav>
       </aside>
 
-      <main className={chrome.main}>
+      <main className={chrome.main} aria-busy={isLoading}>
         <div className={chrome.content}>
           <header className={chrome.topbar}>
             <Link href="/dashboard" className={chrome.logoLink} aria-label="Auto CT, visão geral">
@@ -219,6 +253,7 @@ export default function SettingsPage() {
 
           <div className={styles.pageHeading}><h1>Configurações</h1><span /></div>
 
+          {isLoading ? <SettingsSkeleton /> :
           <form onSubmit={saveSettings}>
             <div className={styles.topGrid}>
               <section className={`${styles.card} ${styles.companyCard}`} aria-labelledby="company-title">
@@ -262,8 +297,9 @@ export default function SettingsPage() {
               </section>
             </div>
 
-            <div className={styles.saveRow}><p role="status">{isLoading ? "Carregando configurações..." : savedMessage}</p><button className={styles.saveButton} type="submit" disabled={isLoading || !settingsLoaded || isSaving}><Save aria-hidden="true" />{isSaving ? "Salvando..." : "Salvar alterações"}</button></div>
+            <div className={styles.saveRow}><p role="status">{savedMessage}</p><button className={styles.saveButton} type="submit" disabled={!settingsLoaded || isSaving}><Save aria-hidden="true" />{isSaving ? "Salvando..." : "Salvar alterações"}</button></div>
           </form>
+          }
         </div>
       </main>
     </div>

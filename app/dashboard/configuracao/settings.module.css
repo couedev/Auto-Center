@@ -97,6 +97,25 @@
 .lightTheme .themeChoices > button strong, .lightTheme .themeChoices > button > span:last-child { color: #1b2518; }
 .lightTheme .accentPicker { border-color: #abb5a6; }
 
+.skeletonHeadingIcon { width: 42px; height: 42px; flex: 0 0 auto; border-radius: 12px; }
+.cardHeading > div:has(.skeletonHeadingTitle) { min-width: 0; flex: 1; display: grid; gap: 8px; }
+.skeletonHeadingTitle { width: 220px; max-width: 90%; height: 20px; border-radius: 7px; }
+.skeletonHeadingSubtitle { width: 170px; max-width: 75%; height: 12px; }
+.skeletonFieldRow { min-height: 36px; display: grid; grid-template-columns: 174px minmax(0, 1fr); align-items: center; gap: 8px; }
+.skeletonFieldLabel { width: 115px; max-width: 90%; height: 12px; }
+.skeletonFieldInput { width: 100%; height: 36px; border-radius: 10px; }
+.skeletonHoursLabel { width: 145px; max-width: 90%; height: 15px; }
+.skeletonHoursInput { width: 100%; height: 43px; border-radius: 11px; }
+.skeletonPreferenceIcon { width: 30px; height: 30px; border-radius: 9px; }
+.skeletonPreferenceTitle { width: 175px; max-width: 90%; height: 14px; }
+.skeletonPreferenceDetail { width: 220px; max-width: 95%; height: 10px; }
+.skeletonToggle { width: 63px; height: 33px; justify-self: end; }
+.skeletonThemeChoice { min-width: 0; display: grid; justify-items: center; gap: 11px; }
+.skeletonThemePreview { width: 100%; max-width: 212px; height: 112px; border-radius: 13px; }
+.skeletonThemeLabel { width: 80px; height: 12px; }
+.skeletonAccent { width: 34px; height: 34px; border-radius: 50%; }
+.skeletonSaveButton { width: 328px; max-width: 100%; height: 57px; border-radius: 17px; }
+
 @media (max-width: 1430px) {
   .topGrid, .bottomGrid { gap: 17px; }
   .card { padding-right: 20px; padding-left: 20px; }
@@ -116,6 +135,8 @@
   .accentPicker { padding-left: 14px; }
   .accentPicker > div { gap: 7px; }
   .accentPicker button { width: 27px; height: 27px; }
+  .skeletonFieldRow { grid-template-columns: 135px minmax(0, 1fr); }
+  .skeletonAccent { width: 27px; height: 27px; }
 }
 
 @media (max-width: 1100px) {
@@ -125,6 +146,7 @@
   .hoursRow { grid-template-columns: minmax(165px, 1fr) minmax(215px, 1fr); }
   .appearanceContent { grid-template-columns: minmax(0, 1fr) 220px; }
   .themePreview { max-width: 212px; }
+  .skeletonFieldRow { grid-template-columns: 175px minmax(0, 1fr); }
 }
 
 @media (max-width: 680px) {
@@ -163,4 +185,8 @@
   .saveRow p { min-height: 15px; text-align: center; }
   .saveButton { width: 100%; min-width: 0; height: 51px; font-size: 15px; }
   .saveButton svg { width: 20px; height: 20px; }
+  .skeletonFieldRow { grid-template-columns: 1fr; gap: 5px; }
+  .skeletonThemePreview { height: 92px; }
+  .skeletonAccent { width: 28px; height: 28px; }
+  .skeletonSaveButton { width: 100%; height: 51px; }
 }

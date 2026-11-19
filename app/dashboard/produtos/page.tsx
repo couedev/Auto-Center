@@ -215,7 +215,7 @@ export default function ProductsPage() {
         </nav>
       </aside>
 
-      <main className={chrome.main}>
+      <main className={chrome.main} aria-busy={isLoading}>
         <div className={chrome.content}>
           <header className={`${chrome.topbar} ${styles.topbar}`}>
             <Link href="/dashboard" className={`${chrome.logoLink} ${styles.logoLink}`} aria-label="Auto CT, visão geral">
@@ -234,11 +234,23 @@ export default function ProductsPage() {
             <button className={styles.newButton} type="button" onClick={openNew}><Plus />Novo Produto</button>
           </div>
 
-          <section className={styles.metrics} aria-label="Resumo do estoque">
+          {isLoading && <p className={chrome.srOnly} role="status">Carregando produtos...</p>}
+          <section className={styles.metrics} aria-label="Resumo do estoque" aria-busy={isLoading}>
+            {isLoading ? [0, 1, 2, 3].map((item) => (
+              <article key={item} className={`${styles.metric} ${item === 0 ? styles.featured : ""}`} aria-hidden="true">
+                <span className={`${chrome.skeletonBlock} ${styles.skeletonMetricIcon}`} />
+                <div className={styles.skeletonMetricContent}>
+                  <span className={`${chrome.skeletonBlock} ${styles.skeletonMetricLabel}`} />
+                  <span className={`${chrome.skeletonBlock} ${styles.skeletonMetricValue}`} />
+                  <span className={`${chrome.skeletonBlock} ${styles.skeletonMetricMeta}`} />
+                </div>
+              </article>
+            )) : <>
             <article className={`${styles.metric} ${styles.featured}`}><Package aria-hidden="true" /><div><span>Produtos ativos</span><strong>{products.length}</strong><small>cadastrados no catálogo</small></div></article>
             <article className={styles.metric}><Boxes aria-hidden="true" /><div><span>Itens em Estoque</span><strong>{new Intl.NumberFormat("pt-BR").format(currentUnits)}</strong><small>unidades disponíveis</small></div></article>
             <article className={styles.metric}><TriangleAlert aria-hidden="true" /><div><span>Baixo Estoque</span><strong>{lowStockCount}</strong><small className={styles.dangerTrend}>até 5 unidades</small></div></article>
             <article className={styles.metric}><Coins aria-hidden="true" /><div><span>Valor do Estoque</span><strong>{money.format(currentValue)}</strong><small>preço × quantidade</small></div></article>
+            </>}
           </section>
 
           <div className={styles.toolbar}>
@@ -248,13 +260,21 @@ export default function ProductsPage() {
             <label className={styles.searchBox}><Search aria-hidden="true" /><span className={styles.srOnly}>Buscar produto</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar produto por nome ou descrição..." /></label>
           </div>
           {apiError && <p className={styles.apiError} role="alert">{apiError}</p>}
-          {isLoading && <p className={styles.loadingState} role="status">Carregando produtos...</p>}
 
           <section className={styles.tableCard} aria-label="Produtos cadastrados">
             <div className={styles.tableScroll}>
               <table>
                 <thead><tr><th>Produto</th><th><button type="button" onClick={() => changeSort("stock")}>Estoque <ArrowDownUp /></button></th><th><button type="button" onClick={() => changeSort("price")}>Preço <ArrowDownUp /></button></th><th>Status</th><th>Ações</th></tr></thead>
                 <tbody>
+                  {isLoading && [0, 1, 2, 3].map((item) => (
+                    <tr key={`loading-${item}`} aria-hidden="true">
+                      <td><div className={styles.productCell}><span className={`${chrome.skeletonBlock} ${styles.skeletonProductThumb}`} /><div><span className={`${chrome.skeletonBlock} ${styles.skeletonProductName}`} /><span className={`${chrome.skeletonBlock} ${styles.skeletonProductDetail}`} /></div></div></td>
+                      <td><span className={`${chrome.skeletonBlock} ${styles.skeletonTableValue}`} /></td>
+                      <td><span className={`${chrome.skeletonBlock} ${styles.skeletonTableValue}`} /></td>
+                      <td><span className={`${chrome.skeletonBlock} ${styles.skeletonTableStatus}`} /></td>
+                      <td><div className={styles.actions}>{[0, 1, 2].map((action) => <span key={action} className={`${chrome.skeletonBlock} ${styles.skeletonTableAction}`} />)}</div></td>
+                    </tr>
+                  ))}
                   {filteredProducts.map((product) => {
                     const low = product.stock <= 5;
                     return <tr key={product.id} className={low ? styles.lowRow : ""}>

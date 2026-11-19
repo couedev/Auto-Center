@@ -141,6 +141,18 @@
 .apiError, .loadingState { margin: 0 0 13px; padding: 11px 14px; border: 1px solid rgba(208, 225, 197, .23); border-radius: 10px; color: #e7ebdf; background: rgba(20, 24, 17, .8); font-size: 13px; }
 .apiError { border-color: rgba(255, 111, 111, .4); color: #ffc2c2; }
 
+.skeletonMetricIcon { width: 37px; height: 37px; flex: 0 0 auto; border-radius: 10px; }
+.skeletonMetricContent { flex: 1; gap: 9px; }
+.skeletonMetricLabel { width: 72%; height: 14px; }
+.skeletonMetricValue { width: 60%; height: 29px; border-radius: 8px; }
+.skeletonMetricMeta { width: 85%; height: 11px; }
+.skeletonProductThumb { width: 67px; height: 51px; flex: 0 0 auto; border-radius: 11px; }
+.skeletonProductName { width: 155px; max-width: 100%; height: 15px; }
+.skeletonProductDetail { width: 115px; max-width: 80%; height: 11px; }
+.skeletonTableValue { width: 70px; max-width: 100%; height: 16px; }
+.skeletonTableStatus { width: 105px; max-width: 100%; height: 30px; }
+.skeletonTableAction { width: 41px; height: 41px; border-radius: 11px; }
+
 .modalOverlay { position: fixed; inset: 0; z-index: 20; padding: 18px; display: grid; place-items: center; background: rgba(0, 0, 0, .77); backdrop-filter: blur(7px); }
 .modal, .confirmModal { width: min(100%, 470px); padding: 24px; border: 1px solid #546944; border-radius: 20px; color: #f6f7f3; background: linear-gradient(150deg, #20251c, #090b09 70%); box-shadow: 0 20px 70px rgba(0, 0, 0, .7), 0 0 24px rgba(150, 227, 0, .1); }
 .modalHeader { display: flex; align-items: center; justify-content: space-between; gap: 15px; }
