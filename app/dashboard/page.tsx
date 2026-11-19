@@ -251,6 +251,8 @@ function DashboardSkeleton() {
 
 export default function DashboardPage() {
   const [period, setPeriod] = useState<Period>("Semana");
+  const [displayedPeriod, setDisplayedPeriod] = useState<Period>("Semana");
+  const [loadingPeriod, setLoadingPeriod] = useState<Period | null>(null);
   const [appointmentStatus, setAppointmentStatus] = useState<AppointmentStatus>("pending");
   const [metrics, setMetrics] = useState<Metrics>(zeroMetrics);
   const [revenueSeries, setRevenueSeries] = useState<RevenuePoint[]>([]);
@@ -262,15 +264,12 @@ export default function DashboardPage() {
   const [updatingAppointmentId, setUpdatingAppointmentId] = useState<string | null>(null);
   const requestIdRef = useRef(0);
   const requestControllerRef = useRef<AbortController | null>(null);
-  const hasLoadedRef = useRef(false);
 
   const loadOverview = useCallback(async () => {
     requestControllerRef.current?.abort();
     const controller = new AbortController();
     requestControllerRef.current = controller;
     const requestId = ++requestIdRef.current;
-    if (!hasLoadedRef.current) setIsLoading(true);
-    setApiError("");
     try {
       const response = await fetch(`/api/admin/overview?period=${encodeURIComponent(period)}`, { cache: "no-store", signal: controller.signal });
       const result = await response.json() as {
@@ -286,6 +285,8 @@ export default function DashboardPage() {
       setCompanyName(result.companyName || "Auto CT");
       setMetrics(result.metrics ?? zeroMetrics);
       setRevenueSeries(result.revenueSeries ?? []);
+      setDisplayedPeriod(period);
+      setApiError("");
       setAppointments(result.appointments ?? []);
       setAppointmentCounts(result.appointmentCounts ?? { pending: 0, progress: 0, done: 0 });
     } catch (error) {
@@ -295,15 +296,19 @@ export default function DashboardPage() {
     } finally {
       if (requestId === requestIdRef.current) {
         requestControllerRef.current = null;
-        hasLoadedRef.current = true;
         setIsLoading(false);
+        setLoadingPeriod(null);
       }
     }
   }, [period]);
+  const loadOverviewRef = useRef(loadOverview);
+  useEffect(() => { loadOverviewRef.current = loadOverview; }, [loadOverview]);
 
   useEffect(() => {
-    void loadOverview();
+    let active = true;
+    queueMicrotask(() => { if (active) void loadOverview(); });
     return () => {
+      active = false;
       requestIdRef.current += 1;
       requestControllerRef.current?.abort();
       requestControllerRef.current = null;
@@ -312,8 +317,26 @@ export default function DashboardPage() {
 
   const handleNewAppointment = useCallback(() => {
     setAppointmentStatus("pending");
+    setApiError("");
     void loadOverview();
   }, [loadOverview]);
+
+  function selectPeriod(nextPeriod: Period) {
+    if (nextPeriod === period) {
+      if (nextPeriod !== displayedPeriod && !loadingPeriod) {
+        setApiError("");
+        setLoadingPeriod(nextPeriod);
+        void loadOverview();
+      }
+      return;
+    }
+    requestIdRef.current += 1;
+    requestControllerRef.current?.abort();
+    requestControllerRef.current = null;
+    setApiError("");
+    setLoadingPeriod(nextPeriod);
+    setPeriod(nextPeriod);
+  }
 
   const selectedMetrics = metrics;
   const visibleAppointments = appointments.filter((appointment) => appointment.status === appointmentStatus);
@@ -345,7 +368,7 @@ export default function DashboardPage() {
         [nextStatus]: current[nextStatus] + 1,
       }));
       setAppointmentStatus(nextStatus);
-      await loadOverview();
+      await loadOverviewRef.current();
     } catch (error) {
       setApiError(error instanceof Error ? error.message : "Não foi possível atualizar o agendamento.");
     } finally {
@@ -399,22 +422,25 @@ export default function DashboardPage() {
               <h1 id="page-title">Visão Geral</h1>
               <span className={styles.titleUnderline} />
             </div>
-            <div className={styles.periodPicker} role="group" aria-label="Período do painel">
-              {periods.map((item) => (
-                <button key={item} type="button" className={period === item ? styles.periodActive : ""} aria-pressed={period === item} onClick={() => setPeriod(item)}>{item}</button>
-              ))}
+            <div className={styles.periodPickerWrap}>
+              <div className={styles.periodPicker} role="group" aria-label="Período do painel">
+                {periods.map((item) => (
+                  <button key={item} type="button" className={period === item ? styles.periodActive : ""} aria-pressed={period === item} onClick={() => selectPeriod(item)}>{item}</button>
+                ))}
+              </div>
+              {loadingPeriod && <span className={styles.periodLoading} role="status">Atualizando {loadingPeriod.toLowerCase()}...</span>}
             </div>
           </section>
 
           {apiError && <p className={styles.dashboardError} role="alert">{apiError}</p>}
           {isLoading ? <DashboardSkeleton /> : <>
 
-          <section className={styles.metrics} aria-label={`Indicadores de ${period.toLowerCase()}`}>
+          <section className={styles.metrics} aria-label={`Indicadores de ${displayedPeriod.toLowerCase()}`}>
             <article className={`${styles.metricCard} ${styles.metricFeatured}`}>
               <Coins className={styles.metricIcon} aria-hidden="true" />
               <div className={styles.metricContent}>
                 <span className={styles.metricLabel}>Faturamento</span>
-              <AnimatedMoney value={selectedMetrics.revenue} />
+                <AnimatedMoney value={selectedMetrics.revenue} />
                 <small><ArrowUpRight /> <b>{selectedMetrics.trends[0]}</b> {selectedMetrics.comparison}</small>
               </div>
             </article>
@@ -445,7 +471,7 @@ export default function DashboardPage() {
           </section>
 
           <div className={styles.lowerGrid}>
-            <RevenueChart period={period} revenue={selectedMetrics.revenue} trend={selectedMetrics.trends[0]} series={revenueSeries} />
+            <RevenueChart period={displayedPeriod} revenue={selectedMetrics.revenue} trend={selectedMetrics.trends[0]} series={revenueSeries} />
 
             <section className={`${styles.panel} ${styles.agendaPanel}`} id="agendamentos" aria-labelledby="appointments-title">
               <div className={styles.panelHeading}>

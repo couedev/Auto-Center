@@ -395,6 +395,9 @@
 
 .dashboardError { border-color: rgba(255, 107, 107, .42); color: #ffc1c1; }
 
+.periodPickerWrap { position: relative; min-width: 0; }
+.periodLoading { position: absolute; top: calc(100% + 5px); right: 4px; color: #aace75; font-size: 11px; white-space: nowrap; }
+
 .periodPicker {
   min-width: 322px;
   height: 43px;
