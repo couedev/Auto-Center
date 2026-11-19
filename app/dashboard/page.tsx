@@ -59,6 +59,41 @@ const zeroMetrics: Metrics = {
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const compactMoney = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", notation: "compact", maximumFractionDigits: 1 });
 
+function AnimatedMoney({ value, className }: { value: number; className?: string }) {
+  const [displayValue, setDisplayValue] = useState(0);
+  const currentValueRef = useRef(0);
+
+  useEffect(() => {
+    const target = Number.isFinite(value) ? Math.max(0, value) : 0;
+    const startValue = currentValueRef.current;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || startValue === target) {
+      currentValueRef.current = target;
+      setDisplayValue(target);
+      return;
+    }
+
+    const duration = 700;
+    let startedAt = 0;
+    let frame = 0;
+    const animate = (timestamp: number) => {
+      if (!startedAt) startedAt = timestamp;
+      const progress = Math.min((timestamp - startedAt) / duration, 1);
+      const easedProgress = 1 - (1 - progress) ** 3;
+      const nextValue = startValue + (target - startValue) * easedProgress;
+      currentValueRef.current = nextValue;
+      setDisplayValue(nextValue);
+      if (progress < 1) frame = window.requestAnimationFrame(animate);
+      else currentValueRef.current = target;
+    };
+
+    frame = window.requestAnimationFrame(animate);
+    return () => window.cancelAnimationFrame(frame);
+  }, [value]);
+
+  const formattedTarget = money.format(Number.isFinite(value) ? Math.max(0, value) : 0);
+  return <strong className={className} aria-label={formattedTarget}>{money.format(displayValue)}</strong>;
+}
+
 function RevenueChart({ period, revenue, trend, series }: { period: Period; revenue: number; trend: string; series: RevenuePoint[] }) {
   const labels = series.length
     ? series.map((point) => ({
@@ -71,6 +106,7 @@ function RevenueChart({ period, revenue, trend, series }: { period: Period; reve
     x: labels.length > 1 ? 44 + (512 / (labels.length - 1)) * index : 300,
     y: 264 - (maximum > 0 ? point.amount / maximum : 0) * 220,
   }));
+  const chartAnimationKey = `${period}-${labels.map((point) => point.amount).join("-")}`;
   const line = points.reduce((path, point, index) => {
     if (index === 0) return `M ${point.x} ${point.y}`;
     const previous = points[index - 1];
@@ -89,7 +125,7 @@ function RevenueChart({ period, revenue, trend, series }: { period: Period; reve
           <ChartNoAxesColumnIncreasing aria-hidden="true" />
           <h2 id="revenue-title">{title}</h2>
         </div>
-        <div className={styles.revenueBadge}><strong>{money.format(revenue)}</strong><span>{trend}</span></div>
+        <div className={styles.revenueBadge}><AnimatedMoney value={revenue} /><span>{trend}</span></div>
       </div>
 
       <div className={styles.chartWrap}>
@@ -111,10 +147,18 @@ function RevenueChart({ period, revenue, trend, series }: { period: Period; reve
             const y = 44 + (220 / (yLabels.length - 1)) * index;
             return <line key={index} x1="44" y1={y} x2="556" y2={y} className={styles.gridLine} />;
           })}
-          <path d={area} fill="url(#revenue-fill)" />
-          <path d={line} className={styles.chartLine} filter="url(#revenue-glow)" />
+          <path key={`${chartAnimationKey}-area`} d={area} fill="url(#revenue-fill)" className={styles.chartArea} />
+          <path
+            key={`${chartAnimationKey}-line`}
+            d={line}
+            className={styles.chartLine}
+            filter="url(#revenue-glow)"
+            pathLength={1}
+            strokeDasharray={1}
+            strokeDashoffset={1}
+          />
           {points.map((point, index) => (
-            <circle key={index} cx={point.x} cy={point.y} r={index === points.length - 1 ? 6 : 4.5} className={styles.chartPoint} />
+            <circle key={`${chartAnimationKey}-${index}`} cx={point.x} cy={point.y} r={index === points.length - 1 ? 6 : 4.5} className={styles.chartPoint} style={{ animationDelay: `${index * 35}ms` }} />
           ))}
           {labels.map(({ label }, index) => (
             <text key={`${label}-${index}`} x={points[index].x} y="288" textAnchor="middle" className={styles.xLabel}>{label}</text>
@@ -370,7 +414,7 @@ export default function DashboardPage() {
               <Coins className={styles.metricIcon} aria-hidden="true" />
               <div className={styles.metricContent}>
                 <span className={styles.metricLabel}>Faturamento</span>
-                <strong>{money.format(selectedMetrics.revenue)}</strong>
+              <AnimatedMoney value={selectedMetrics.revenue} />
                 <small><ArrowUpRight /> <b>{selectedMetrics.trends[0]}</b> {selectedMetrics.comparison}</small>
               </div>
             </article>
